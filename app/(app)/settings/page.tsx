@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { listProducts, listStages } from '@/lib/crm/queries'
 import { requireSeat } from '@/lib/workspaces/seat'
 import { ProductsEditor, ProjectsEditor, StagesEditor, FieldsEditor } from './editors'
+import { SellerSection } from './seller-section'
 import { TeamSection } from './team-section'
 import { mcpResource } from '@/lib/auth'
 import { Panel } from '@/components/crm/record-layout'
@@ -21,6 +22,7 @@ export default async function SettingsPage() {
     <div className="mx-auto w-full max-w-3xl space-y-10 p-4 lg:p-8">
       <h1 className="text-xl font-semibold">Settings</h1>
       <TeamSection seat={seat} />
+      <SellerSection role={seat.workspace.role} />
       <Panel title="Projects">
         <p className="mb-3 text-sm text-muted-foreground">Commercial brands. Each gets its own pipeline in the sidebar. Details are on the Products page.</p>
         <ProjectsEditor projects={projects} />

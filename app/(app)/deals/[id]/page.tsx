@@ -13,6 +13,7 @@ import { ActivityComposer } from '@/components/crm/log-activity'
 import { Timeline } from '@/components/crm/timeline'
 import { CustomFields } from '@/components/crm/custom-fields'
 import { StageBar } from '@/components/crm/stage-bar'
+import { DealQuotes } from '@/components/quotes/deal-quotes'
 
 const live = { deletedAt: null }
 
@@ -117,6 +118,7 @@ export default async function DealPage({ params }: PageProps<'/deals/[id]'>) {
       <Panel title="Next steps">
         <TaskList tasks={tasks} target={{ dealId: id }} />
       </Panel>
+      <DealQuotes dealId={id} />
       <ActivityComposer dealId={id} companyId={deal.companyId} people={people} personIds={deal.contactId ? [deal.contactId] : []} />
       <Timeline entries={timeline} emptyHint="No interaction on this deal yet." />
     </RecordLayout>

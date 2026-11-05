@@ -19,6 +19,7 @@ import { LinkedinIcon } from '@/components/crm/icons'
 import type { TimelineEntry } from '@/lib/crm/queries'
 import { deleteActivity, deleteNote } from '@/lib/crm/actions'
 import { ACTIVITY_LABELS, formatDateTime, formatRelative, personName } from '@/lib/crm/format'
+import { quoteEventText } from '@/lib/quotes/event-text'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 
@@ -58,6 +59,7 @@ const FIELD_LABELS: Record<string, string> = {
 function eventText(name: string, properties: unknown): string {
   const props = (properties ?? {}) as { from?: string; to?: string; diff?: Record<string, unknown> }
   const [object, action] = name.split('.')
+  if (object === 'quote') return quoteEventText(action, props as Parameters<typeof quoteEventText>[1])
   if (action === 'stage_changed') return `Stage changed from ${props.from} to ${props.to}`
   if (action === 'updated') {
     const fields = Object.keys(props.diff ?? {}).map((field) => FIELD_LABELS[field] ?? field)

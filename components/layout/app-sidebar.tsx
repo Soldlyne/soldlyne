@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BarChart3, Building2, HeartHandshake, Magnet, CheckSquare, Home, Inbox, KanbanSquare, Package, Settings, Upload, Users, Handshake } from 'lucide-react'
+import { BarChart3, Building2, FileText, HeartHandshake, Magnet, CheckSquare, Home, Inbox, KanbanSquare, Package, Settings, Upload, Users, Handshake } from 'lucide-react'
 import { WorkspaceSwitcher, type SwitchableWorkspace } from './workspace-switcher'
 import {
   Sidebar,
@@ -60,6 +60,7 @@ export function AppSidebar({ projects, openTasks, workspace, otherWorkspaces, ma
         { title: 'Companies', url: '/companies', icon: Building2 },
         { title: 'People', url: '/people', icon: Users },
         { title: 'Deals', url: '/deals', icon: Handshake },
+        { title: 'Quotes', url: '/quotes', icon: FileText },
         { title: 'Products', url: '/products', icon: Package },
         { title: 'Partners', url: '/partners', icon: HeartHandshake },
       ],
