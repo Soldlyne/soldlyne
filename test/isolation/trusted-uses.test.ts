@@ -16,6 +16,7 @@ const TRUSTED_USES: Record<string, string> = {
   'app/api/leads/route.ts': 'the key is what says which workspace a lead is for',
   'lib/sync/workspaces.ts': 'the list of workspaces the cron walks, each then bound',
   'lib/quotes/link.ts': "a customer's link says which workspace its quote is in, and everything after is bound to it",
+  'lib/api/key-lookup.ts': 'an API key says which workspace a read is for, and everything after is bound to it',
 }
 
 const ROOT = new URL('../..', import.meta.url).pathname

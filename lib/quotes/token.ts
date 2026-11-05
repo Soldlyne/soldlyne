@@ -1,25 +1,11 @@
-import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
+import { isSignedToken, newSignedToken } from '@/lib/signed-token'
 
-/**
- * A customer's link: a random part, then the install's signature on it. The signature is checked before
- * anything else, so a bot trying addresses is turned away without waking the database. Only a hash of
- * the whole is stored, as for invitations. Signed with the install's one secret, so replacing that secret ends every open link.
- */
+/** A customer's link: a signed token, as lib/signed-token.ts says, so a made-up one never reaches the database. */
 
-const signature = (random: string, secret: string) => createHmac('sha256', secret).update(`quote-link:${random}`).digest('base64url')
+const QUOTE_LINK = 'quote-link'
 
-export function newQuoteToken(secret = process.env.BETTER_AUTH_SECRET): string {
-  if (!secret) throw new Error('BETTER_AUTH_SECRET is not set: no link can be signed.')
-  const random = randomBytes(32).toString('base64url')
-  return `${random}.${signature(random, secret)}`
-}
+export const newQuoteToken = (secret = process.env.BETTER_AUTH_SECRET): string => newSignedToken(QUOTE_LINK, secret)
 
-export function isSignedQuoteToken(token: string, secret = process.env.BETTER_AUTH_SECRET): boolean {
-  const [random, signed, ...rest] = token.split('.')
-  if (!secret || !random || !signed || rest.length > 0) return false
-  const expected = Buffer.from(signature(random, secret))
-  const given = Buffer.from(signed)
-  return given.length === expected.length && timingSafeEqual(given, expected)
-}
+export const isSignedQuoteToken = (token: string, secret = process.env.BETTER_AUTH_SECRET): boolean => isSignedToken(QUOTE_LINK, token, secret)
 
 export const quoteLinkPath = (token: string) => `/q/${encodeURIComponent(token)}`

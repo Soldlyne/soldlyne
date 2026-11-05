@@ -315,6 +315,7 @@ model Workspace {
   quoteCounter         QuoteCounter?
   quotes               Quote[]
   quoteLines           QuoteLine[]
+  apiKeys              ApiKey[]
 }
 
 enum MemberRole {
@@ -1056,5 +1057,27 @@ model QuoteLine {
 
   @@index([quoteId, position])
   @@index([productId])
+  @@index([workspaceId])
+}
+
+/// A key another app reads this workspace's records with. Only its hash is kept: it is shown once.
+model ApiKey {
+  id              String    @id @default(cuid())
+  workspaceId     String    @default(dbgenerated("current_setting('app.workspace_id'::text)"))
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name            String
+  /// SHA-256 of the key.
+  keyHash         String    @unique
+  /// First characters of the key, to recognise it in the list.
+  prefix          String
+  /// What it may do. Only "read" exists today.
+  scopes          String[]  @default(["read"])
+  lastUsedAt      DateTime?
+  revokedAt       DateTime?
+  /// Requests in the current minute, counted in the row so every server sees the same count.
+  windowStartedAt DateTime  @default(now())
+  windowCount     Int       @default(0)
+  createdAt       DateTime  @default(now())
+
   @@index([workspaceId])
 }
