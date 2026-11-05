@@ -2,7 +2,7 @@
 
 The CRM that takes over once someone answers: companies, people, deals, pipelines, tasks, timeline and reports. Soldlyne is the sibling of [Coldlyne](https://github.com/Coldlyne/coldlyne), which does the prospecting and sends the messages. From cold to sold. See [docs/00-product.md](docs/00-product.md).
 
-**Under construction.** One install hosts many companies, each in its own workspace, walled off by the database itself. The link with Coldlyne isn't built yet, so today the two run side by side and know nothing of each other. The plan is in [the spec](docs/00-product.md#4-working-with-coldlyne-planned). Amounts are in euros.
+**Under construction.** One install hosts many companies, each in its own workspace, walled off by the database itself. The link with Coldlyne isn't built yet, so today the two run side by side and know nothing of each other. The plan is in [the spec](docs/00-product.md#4-working-with-coldlyne-planned). Deal amounts are in euros; a quote has its own currency.
 
 ## What it does today
 
@@ -12,10 +12,11 @@ The CRM that takes over once someone answers: companies, people, deals, pipeline
 - **Lead capture.** `POST /api/leads` with a key per form creates or updates the person and the company, can open a deal, and records the opt-in when the person gave one.
 - **Mailbox sync.** Gmail and Google Calendar log emails and meetings with people already in Soldlyne, every hour. Read access only.
 - **Partners.** Who referred which deal, and the commission owed.
+- **Quotes.** From a deal to a quote the customer accepts online: lines with a tax rate each and an optional discount, per-rate tax, numbers that never skip, a PDF, and a link they open with no account. Accepting moves the deal to Won. Details are [below](#quotes).
 - **Workspaces.** One per company, with its own records, stages, products, mailboxes and lead keys. One account can belong to several and switch from the sidebar. Owners and admins invite people by address.
 - **Assistants.** An MCP server at `/mcp`, so Claude, ChatGPT or any MCP client can run the pipeline. They connect through OAuth, and one connection covers all the member's workspaces. Everything an assistant does is recorded as done by MCP.
 
-Soldlyne never sends prospecting email. The only mail it sends is its own to its members: confirmation links, forgotten passwords and invitations.
+Soldlyne never sends prospecting email. The only mail it sends is its own to its members (confirmation links, forgotten passwords and invitations), and a quote's link to the customer of a deal, when a member sends it.
 
 ## Running it locally
 
@@ -52,7 +53,7 @@ and call `/api/cron/sync` every hour with `Authorization: Bearer <CRON_SECRET>`.
 
 Migrations run with the owner's address: `DATABASE_URL_UNPOOLED` if your host has one, otherwise `DATABASE_URL`. The owner needs the right to create roles the first time, since the migration creates `soldlyne_app`, a role with no login that can't bypass row-level security, and makes the owner a member of it. On a server where another owner already created that role, a superuser first runs `GRANT soldlyne_app TO <owner> WITH ADMIN OPTION`.
 
-The app connects with an address allowed to `SET ROLE soldlyne_app`: the owner's own, pooled if you like. Each operation on a workspace's data is then a transaction that takes that role and sets the workspace, so row-level security limits it to that workspace's rows, whatever the query says. An owner without `BYPASSRLS` gets no business rows outside that role, apart from looking up a lead key or an invitation. A superuser or a role with `BYPASSRLS` (check what your host gives its owner) sees every row when it isn't in that role, so there the tenant client alone holds it to one workspace. See [the spec](docs/00-product.md#workspaces).
+The app connects with an address allowed to `SET ROLE soldlyne_app`: the owner's own, pooled if you like. Each operation on a workspace's data is then a transaction that takes that role and sets the workspace, so row-level security limits it to that workspace's rows, whatever the query says. An owner without `BYPASSRLS` gets no business rows outside that role, apart from looking up a lead key, an invitation or a quote's link. A superuser or a role with `BYPASSRLS` (check what your host gives its owner) sees every row when it isn't in that role, so there the tenant client alone holds it to one workspace. See [the spec](docs/00-product.md#workspaces).
 
 ### Signing in
 
@@ -68,14 +69,14 @@ One of these, and `SOLDLYNE_ADMINS` for who may start. Nobody can get an account
 | `DATABASE_URL` | Yes | Postgres, as a role allowed to `SET ROLE soldlyne_app`. |
 | `DATABASE_URL_UNPOOLED` | When your host pools connections | The owner's direct address, for migrations. |
 | `BETTER_AUTH_URL` | Yes | This install's public address. |
-| `BETTER_AUTH_SECRET` | Yes | Signs sessions: `openssl rand -base64 32`. |
+| `BETTER_AUTH_SECRET` | Yes | Signs sessions and quote links: `openssl rand -base64 32`. Replacing it ends every quote link still out; a member can make a new one. |
 | `SOLDLYNE_ADMINS` | Yes | Who may get an account without an invitation and start workspaces, comma separated. Empty means nobody. |
 | `OIDC_ISSUER` | For a provider | The OpenID Connect issuer. Its discovery document is read at `<issuer>/.well-known/openid-configuration`. |
 | `OIDC_CLIENT_ID` | For a provider | |
 | `OIDC_CLIENT_SECRET` | For a provider | |
 | `OIDC_NAME` | No | The provider's name on the sign-in page. Default: SSO. |
 | `SOLDLYNE_PASSWORD_SIGN_IN` | For passwords | `true` offers addresses and passwords, unless a provider is set. |
-| `RESEND_API_KEY` | For passwords | Soldlyne's own mail. It never carries prospecting. Without it, an invitation shows its link to copy. |
+| `RESEND_API_KEY` | For passwords | Soldlyne's own mail. It never carries prospecting. Without it, an invitation or a quote shows its link to copy. |
 | `SOLDLYNE_MAIL_FROM` | For passwords | The sender, on a domain verified at Resend. |
 | `GOOGLE_CLIENT_ID` | For mailbox sync | A Google OAuth client with the Gmail and Calendar APIs enabled and `<your address>/api/google/callback` as a redirect address. An Internal consent screen avoids Google's review. |
 | `GOOGLE_CLIENT_SECRET` | For mailbox sync | |
@@ -90,6 +91,20 @@ A workspace is one company on an install. Everything in it stays in it: records,
 - **Switching.** The switcher shows the workspace you're in and your others. The browser remembers your choice in a cookie, but membership is read again on every request: a cookie naming a workspace you aren't in falls back to your first.
 - **The team.** In Settings, owners and admins invite by address as admin or member, cancel, remove and change roles. Admins don't touch owners. Nobody removes or demotes the last owner, who can't leave either. Anyone else can leave. Removal ends access at the next request.
 - **Invitations.** A link good for 14 days and for the invited address only, sent by mail, or shown to copy when the install has no mail. It lets that address get an account, on the password path or through the provider. Opening it signed in with another address says so and names nothing.
+
+## Quotes
+
+A quote starts from a deal, with **New quote** on its page, and goes to its customer by a link.
+
+- **Seller details.** In Settings, owners and admins fill in the legal name, address, company number, VAT number and contact email, and what a new quote starts from: currency, tax rate, validity and terms. It is the workspace's own text. Soldlyne doesn't check it, doesn't choose a tax rate, and doesn't say what a quote must contain where you are.
+- **Numbers.** Each workspace counts on its own, 0001 upward, with the year in front if you ask (2026-0042). The number is taken when the quote is created and quotes aren't deleted, so none is skipped or used twice. The count doesn't start again each January: with the year in front, 2026-0042 can be followed by 2027-0043.
+- **Amounts.** Everything is kept in exact integers, in the quote's own currency. Each line's net is rounded to the minor unit; tax is then worked out once per rate, on the sum of that rate's lines. Exactly half a minor unit rounds up.
+- **Sending.** It needs the seller details, at least one line and a customer, and says what's missing. The customer gets a mail with their link, or with no mail set up you get the link to copy. It's shown once, since only its hash is kept; **New link** replaces a lost one and ends the old one. Sending also copies the seller and the customer onto the quote, so later edits don't change it.
+- **After sending.** A sent quote can't be edited. **Copy** makes a new draft under the next number. **Mark declined** records a no you got some other way.
+- **The customer.** `/q/<link>` shows the quote and its PDF, with no account. They accept with a typed name and a ticked box, which records the name, the date, the IP address and the browser, or decline with a reason if they like. It works once. Opening the link changes nothing, since mail scanners open links too. The IP address is what the host in front reports: Vercel sets it itself, so check that your proxy does.
+- **The deal.** Accepting moves an open deal to your first Won stage and says so on its timeline. A deal already closed stays where it is. Declining only adds to the timeline: one quote declined isn't the deal lost. The deal's amount isn't changed.
+- **Expiry.** A quote can be answered through its valid-until date, the whole of it, in UTC. Expired is worked out when reading: no job runs, and nothing wakes the database.
+- **The PDF.** Its font covers Western European characters. Other letters and symbols show as `?`, with a line saying so, and the customer's page shows them in full.
 
 ## Running a hosted edition
 
@@ -108,7 +123,7 @@ Add `<your address>/mcp` to Claude, ChatGPT or any MCP client as a remote connec
 claude mcp add --transport http soldlyne <your address>/mcp
 ```
 
-If you belong to several workspaces, each tool takes a `workspace` argument, an id or an exact name from `list_workspaces`, and a call without it is refused: there is no hidden current workspace. With one workspace there's no such argument. No tool invites, removes or changes members. There's no screen yet to see or cancel an assistant's connection: a member's access ends when they leave a workspace or lose their account, and a token lasts an hour unless refreshed.
+If you belong to several workspaces, each tool takes a `workspace` argument, an id or an exact name from `list_workspaces`, and a call without it is refused: there is no hidden current workspace. With one workspace there's no such argument. No tool invites, removes or changes members, accepts a quote for a customer, or changes the seller details. `send_quote` writes to a real person, so an assistant is told to use it only once you've said yes, and the customer's link stays out of its conversation. There's no screen yet to see or cancel an assistant's connection: a member's access ends when they leave a workspace or lose their account, and a token lasts an hour unless refreshed.
 
 ## License
 
