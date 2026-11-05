@@ -15,6 +15,7 @@ The CRM that takes over once someone answers: companies, people, deals, pipeline
 - **Quotes.** From a deal to a quote the customer accepts online: lines with a tax rate each and an optional discount, per-rate tax, numbers that never skip, a PDF, and a link they open with no account. Accepting moves the deal to Won. Details are [below](#quotes).
 - **Workspaces.** One per company, with its own records, stages, products, mailboxes and lead keys. One account can belong to several and switch from the sidebar. Owners and admins invite people by address.
 - **Assistants.** An MCP server at `/mcp`, so Claude, ChatGPT or any MCP client can run the pipeline. They connect through OAuth, and one connection covers all the member's workspaces. Everything an assistant does is recorded as done by MCP.
+- **A read API.** `GET /api/v1/deals`, `/companies`, `/stages` and `/products`, with a key per workspace, so another app can read the pipeline. Details are [below](#reading-from-another-app).
 
 Soldlyne never sends prospecting email. The only mail it sends is its own to its members (confirmation links, forgotten passwords and invitations), and a quote's link to the customer of a deal, when a member sends it.
 
@@ -53,7 +54,7 @@ and call `/api/cron/sync` every hour with `Authorization: Bearer <CRON_SECRET>`.
 
 Migrations run with the owner's address: `DATABASE_URL_UNPOOLED` if your host has one, otherwise `DATABASE_URL`. The owner needs the right to create roles the first time, since the migration creates `soldlyne_app`, a role with no login that can't bypass row-level security, and makes the owner a member of it. On a server where another owner already created that role, a superuser first runs `GRANT soldlyne_app TO <owner> WITH ADMIN OPTION`.
 
-The app connects with an address allowed to `SET ROLE soldlyne_app`: the owner's own, pooled if you like. Each operation on a workspace's data is then a transaction that takes that role and sets the workspace, so row-level security limits it to that workspace's rows, whatever the query says. An owner without `BYPASSRLS` gets no business rows outside that role, apart from looking up a lead key, an invitation or a quote's link. A superuser or a role with `BYPASSRLS` (check what your host gives its owner) sees every row when it isn't in that role, so there the tenant client alone holds it to one workspace. See [the spec](docs/00-product.md#workspaces).
+The app connects with an address allowed to `SET ROLE soldlyne_app`: the owner's own, pooled if you like. Each operation on a workspace's data is then a transaction that takes that role and sets the workspace, so row-level security limits it to that workspace's rows, whatever the query says. An owner without `BYPASSRLS` gets no business rows outside that role, apart from looking up a lead key, an invitation, a quote's link or an API key. A superuser or a role with `BYPASSRLS` (check what your host gives its owner) sees every row when it isn't in that role, so there the tenant client alone holds it to one workspace. See [the spec](docs/00-product.md#workspaces).
 
 ### Signing in
 
@@ -105,6 +106,23 @@ A quote starts from a deal, with **New quote** on its page, and goes to its cust
 - **The deal.** Accepting moves an open deal to your first Won stage and says so on its timeline. A deal already closed stays where it is. Declining only adds to the timeline: one quote declined isn't the deal lost. The deal's amount isn't changed.
 - **Expiry.** A quote can be answered through its valid-until date, the whole of it, in UTC. Expired is worked out when reading: no job runs, and nothing wakes the database.
 - **The PDF.** Its font covers Western European characters. Other letters and symbols show as `?`, with a line saying so, and the customer's page shows them in full.
+
+## Reading from another app
+
+Another app reads a workspace with a key. Owners and admins make and revoke keys in Settings, under API keys. A key is shown once, only its hash is kept, and no assistant can make one. It opens its own workspace and nothing else. Keys are signed with `BETTER_AUTH_SECRET`, so replacing that secret ends them.
+
+```bash
+curl -H "Authorization: Bearer $KEY" "$ADDRESS/api/v1/deals?updatedSince=2026-11-05T10:00:00Z&limit=100"
+```
+
+- **Lists.** `GET /api/v1/deals`, `/api/v1/companies`, `/api/v1/stages` and `/api/v1/products` answer `{ "data": [...], "nextCursor": "...", "asOf": "..." }`. `GET /api/v1/workspace` answers `{ "id": "...", "name": "..." }`, which stays the same when a key is replaced.
+- **Parameters.** `limit` runs from 1 to 200, 100 by default. Pass `nextCursor` back as `cursor` to read the next page, until it is `null`. `updatedSince` is an ISO date and time, and leaves out what hasn't changed since.
+- **Reading only what changed.** Keep the first page's `asOf` and pass it as the next read's `updatedSince`. It stays a minute behind the clock, so a record still being saved isn't missed, and you may see a few records twice.
+- **What counts as changed.** A deal shows its stage's, product's, project's and contact's names, so it counts as changed when any of them does.
+- **Deleted records.** Deals and companies deleted in Soldlyne stay in the lists with `"deleted": true` and a `deletedAt`, so a reader can remove them. A deleted contact shows as `null` on its deals.
+- **Stages and products.** They aren't deleted softly. A product stops being sold with `"archived": true`, and a stage removed from Settings is simply gone from the list, so read these two lists whole. Removing a stage also erases for good the deleted deals still in it, so a reader that wants to catch those compares a whole read now and then.
+- **Deals carry** `id`, `name`, `stage` (`id`, `name`, `kind`: `OPEN`, `WON` or `LOST`), `product` and `project` (`id`, `name`; `project` can be `null`), `companyId`, `contact` (`name`, `email`), `amountMinor` and `currency`, `probability` (the deal's own, else its stage's), `closeDate`, `closedAt`, `source`, `createdAt`, `updatedAt`, `deleted`, `deletedAt` and `url`, the deal's page. `amountMinor` is a string of hundredths of the currency, as a JSON number could lose digits.
+- **Limits.** 120 requests a minute per key, then a `429` with `Retry-After`. A request with no valid key gets a `401` from the key's signature alone: it reaches no database and no sign-in code. The API only reads.
 
 ## Running a hosted edition
 
