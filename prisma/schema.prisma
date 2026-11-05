@@ -1,0 +1,933 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Auth (Better Auth)
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+
+  memberships        Member[]
+  invitationsSent    Invitation[]
+  oauthClients       OauthClient[]
+  oauthRefreshTokens OauthRefreshToken[]
+  oauthAccessTokens  OauthAccessToken[]
+  oauthConsents      OauthConsent[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  oauthRefreshTokens OauthRefreshToken[]
+  oauthAccessTokens  OauthAccessToken[]
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+model RateLimit {
+  id          String @id
+  key         String @unique
+  count       Int
+  lastRequest BigInt
+
+  @@map("rateLimit")
+}
+
+// ---------------------------------------------------------------------------
+// Assistants signing in (Better Auth's OAuth provider and its signing keys)
+//
+// Claude, ChatGPT and any MCP client register here, and a member grants them access on the consent
+// page. Field names are the plugin's own, so its queries find them.
+// ---------------------------------------------------------------------------
+
+model OauthClient {
+  id                               String    @id
+  clientId                         String    @unique
+  clientSecret                     String?
+  clientDiscoveryId                String?
+  disabled                         Boolean?  @default(false)
+  skipConsent                      Boolean?
+  enableEndSession                 Boolean?
+  subjectType                      String?
+  scopes                           String[]
+  clientCredentialsScopes          String[]
+  userId                           String?
+  user                             User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt                        DateTime?
+  updatedAt                        DateTime?
+  name                             String?
+  uri                              String?
+  icon                             String?
+  contacts                         String[]
+  tos                              String?
+  policy                           String?
+  softwareId                       String?
+  softwareVersion                  String?
+  softwareStatement                String?
+  redirectUris                     String[]
+  postLogoutRedirectUris           String[]
+  backchannelLogoutUri             String?
+  backchannelLogoutSessionRequired Boolean?
+  tokenEndpointAuthMethod          String?
+  applicationType                  String?
+  jwks                             String?
+  jwksUri                          String?
+  grantTypes                       String[]
+  responseTypes                    String[]
+  requirePKCE                      Boolean?
+  dpopBoundAccessTokens            Boolean?  @default(false)
+  referenceId                      String?
+  metadata                         Json?
+
+  resources     OauthClientResource[]
+  refreshTokens OauthRefreshToken[]
+  accessTokens  OauthAccessToken[]
+  consents      OauthConsent[]
+
+  @@index([userId])
+  @@map("oauth_client")
+}
+
+model OauthResource {
+  id                            String    @id
+  identifier                    String    @unique
+  name                          String
+  accessTokenTtl                Int?
+  refreshTokenTtl               Int?
+  signingAlgorithm              String?
+  signingKeyId                  String?
+  allowedScopes                 String[]
+  customClaims                  Json?
+  dpopBoundAccessTokensRequired Boolean?  @default(false)
+  disabled                      Boolean?  @default(false)
+  createdAt                     DateTime?
+  updatedAt                     DateTime?
+  policyVersion                 Int?      @default(1)
+  metadata                      Json?
+
+  clients OauthClientResource[]
+
+  @@map("oauth_resource")
+}
+
+model OauthClientResource {
+  id         String        @id
+  clientId   String
+  client     OauthClient   @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  resourceId String
+  resource   OauthResource @relation(fields: [resourceId], references: [identifier], onDelete: Cascade)
+  metadata   Json?
+  createdAt  DateTime?
+
+  @@unique([clientId, resourceId])
+  @@index([resourceId])
+  @@map("oauth_client_resource")
+}
+
+model OauthRefreshToken {
+  id                      String      @id
+  token                   String      @unique
+  clientId                String
+  client                  OauthClient @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  sessionId               String?
+  session                 Session?    @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  userId                  String
+  user                    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  referenceId             String?
+  authorizationCodeId     String?
+  resources               String[]
+  requestedUserInfoClaims String[]
+  expiresAt               DateTime?
+  createdAt               DateTime?
+  revoked                 DateTime?
+  rotatedAt               DateTime?
+  rotationReplayResponse  String?
+  rotationReplayExpiresAt DateTime?
+  authTime                DateTime?
+  confirmation            Json?
+  scopes                  String[]
+
+  accessTokens OauthAccessToken[]
+
+  @@index([clientId])
+  @@index([sessionId])
+  @@index([userId])
+  @@index([authorizationCodeId])
+  @@map("oauth_refresh_token")
+}
+
+model OauthAccessToken {
+  id                      String             @id
+  token                   String?            @unique
+  clientId                String
+  client                  OauthClient        @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  sessionId               String?
+  session                 Session?           @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  userId                  String?
+  user                    User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  referenceId             String?
+  authorizationCodeId     String?
+  resources               String[]
+  requestedUserInfoClaims String[]
+  refreshId               String?
+  refresh                 OauthRefreshToken? @relation(fields: [refreshId], references: [id], onDelete: Cascade)
+  expiresAt               DateTime?
+  createdAt               DateTime?
+  revoked                 DateTime?
+  confirmation            Json?
+  scopes                  String[]
+
+  @@index([clientId])
+  @@index([sessionId])
+  @@index([userId])
+  @@index([authorizationCodeId])
+  @@index([refreshId])
+  @@map("oauth_access_token")
+}
+
+model OauthConsent {
+  id                      String      @id
+  clientId                String
+  client                  OauthClient @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  userId                  String?
+  user                    User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  referenceId             String?
+  resources               String[]
+  requestedUserInfoClaims String[]
+  scopes                  String[]
+  createdAt               DateTime?
+  updatedAt               DateTime?
+
+  @@index([clientId])
+  @@index([userId])
+  @@map("oauth_consent")
+}
+
+model OauthClientAssertion {
+  id        String   @id
+  expiresAt DateTime
+
+  @@map("oauth_client_assertion")
+}
+
+model Jwks {
+  id         String    @id
+  publicKey  String
+  privateKey String
+  createdAt  DateTime
+  expiresAt  DateTime?
+  alg        String?
+  crv        String?
+
+  @@map("jwks")
+}
+
+// ---------------------------------------------------------------------------
+// Workspaces
+//
+// One company on this install. Read by the trusted path to find whose workspace a request is in,
+// before it is bound to one: no row-level security on these two, and the app role can't reach them.
+// ---------------------------------------------------------------------------
+
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+
+  members              Member[]
+  invitations          Invitation[]
+  entities             Entity[]
+  projects             Project[]
+  products             Product[]
+  stages               Stage[]
+  customFields         CustomField[]
+  views                View[]
+  companies            Company[]
+  people               Person[]
+  deals                Deal[]
+  activities           Activity[]
+  activityParticipants ActivityParticipant[]
+  tasks                Task[]
+  notes                Note[]
+  timelineEvents       TimelineEvent[]
+  mailboxes            Mailbox[]
+  leadSources          LeadSource[]
+  partners             Partner[]
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+model Member {
+  workspaceId String
+  workspace   Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role        MemberRole @default(MEMBER)
+  createdAt   DateTime   @default(now())
+
+  @@id([workspaceId, userId])
+  @@index([userId])
+}
+
+/// Someone asked to join a workspace, perhaps before they have an account.
+model Invitation {
+  id          String     @id @default(cuid())
+  workspaceId String     @default(dbgenerated("current_setting('app.workspace_id'::text)"))
+  workspace   Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  /// Lowercased: the one address the link lets in.
+  email       String
+  role        MemberRole @default(MEMBER)
+  /// SHA-256 of the token; the link itself is mailed or shown once.
+  tokenHash   String     @unique
+  expiresAt   DateTime
+  invitedById String?
+  invitedBy   User?      @relation(fields: [invitedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime   @default(now())
+  acceptedAt  DateTime?
+
+  @@index([workspaceId])
+  @@index([email])
+}
+
+// ---------------------------------------------------------------------------
+// Configuration
+// ---------------------------------------------------------------------------
+
+/// One of your own legal companies.
+model Entity {
+  id          String    @id @default(cuid())
+  workspaceId String    @default(dbgenerated("current_setting('app.workspace_id'::text)"))
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  siren       String?
+  vatNumber   String?
+  /// Invoicing / contact address for this company.
+  email       String?
+  website     String?
+  position    Float     @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  projects    Project[]
+
+  @@unique([workspaceId, name])
+}
+
+/// A commercial brand or project run by one company; holds one or more products.
+model Project {
+  id          String    @id @default(cuid())
+  workspaceId String    @default(dbgenerated("current_setting('app.workspace_id'::text)"))
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  entityId    String?
+  entity      Entity?   @relation(fields: [entityId], references: [id], onDelete: SetNull)
+  tagline     String?
+  url         String?
+  color       String    @default("#6366f1")
+  position    Float     @default(0)
+  archived    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  products    Product[]
+
+  @@unique([workspaceId, name])
+}
+
+enum ProductKind {
+  SAAS
+  SERVICE
+  TRAINING
+  RECRUITMENT
+  LICENSE
+  ADS
+  OTHER
+}
+
+enum ProductStatus {
+  LIVE
+  BETA
+  PLANNED
+}
+
+/// Something for sale (software, a service, a consulting offer...). Each deal is for one product.
+model Product {
+  id          String        @id @default(cuid())
+  workspaceId String        @default(dbgenerated("current_setting('app.workspace_id'::text)"))
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  color       String        @default("#6366f1")
+  projectId   String?
+  kind        ProductKind   @default(OTHER)
+  status      ProductStatus @default(LIVE)
+  /// One-line pitch.
+  tagline     String?
+  /// Who buys it.
+  buyer       String?
+  /// Price as sold ("49 EUR / month", "on quote").
+  pricing     String?
+  url         String?
+  position    Float         @default(0)
+  archived    Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  deals       Deal[]
+  project     Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  leadSources LeadSource[]
+
+  @@index([workspaceId])
+}
+
+enum StageKind {
+  OPEN
+  WON
+  LOST
+}
+
+/// Pipeline stage, shared by every product.
+model Stage {
+  id          String    @id @default(cuid())
+  workspaceId String    @default(dbgenerated("current_setting('app.workspace_id'::text)"))
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  kind        StageKind @default(OPEN)
+  position    Float     @default(0)
+  /// Default win probability (0-100), used for the weighted pipeline.
+  probability Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deals       Deal[]
+
+  @@index([workspaceId])
+}
+
+enum RecordObject {
+  COMPANY
+  PERSON
+  DEAL
+}
+
+enum FieldType {
+  TEXT
+  NUMBER
+  DATE
+  URL
+  SELECT
+  MULTI_SELECT
+  BOOLEAN
+}
+
+/// User-defined field; values live in the record's `custom` JSON under `key`.
+model CustomField {
+  id          String       @id @default(cuid())
+  workspaceId String       @default(dbgenerated("current_setting('app.workspace_id'::text)"))
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  object      RecordObject
+  key         String
+  label       String
+  type        FieldType
+  /// SELECT / MULTI_SELECT: [{ value, label, color }]
+  options     Json?
+  position    Float        @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@unique([workspaceId, object, key])
+}
+
+enum ViewType {
+  TABLE
+  KANBAN
+}
+
+/// Saved filters, sorts and visible columns for a record list.
+model View {
+  id          String       @id @default(cuid())
+  workspaceId String       @default(dbgenerated("current_setting('app.workspace_id'::text)"))
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  object      RecordObject
+  name        String
+  type        ViewType     @default(TABLE)
+  /// [{ field, op, value }]
+  filters     Json         @default("[]")
+  /// [{ field, direction }]
+  sorts       Json         @default("[]")
+  /// [{ field, width, hidden }] in display order
+  columns     Json         @default("[]")
+  position    Float        @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([workspaceId])
+}
+
+// ---------------------------------------------------------------------------
+// Records
+// ---------------------------------------------------------------------------
+
+/// Where a record or deal came from.
+enum Channel {
+  PHONE
+  EMAIL
+  LINKEDIN
+  SOCIAL
+  INBOUND
+  REFERRAL
+  EVENT
+  OTHER
+}
+
+model Company {
+  id          String    @id @default(cuid())
+  workspaceId String    @default(dbgenerated("current_setting('app.workspace_id'::text)"))
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  /// Bare domain (acme.com), used to match email participants to the company.
+  domain      String?
+  linkedinUrl String?
+  industry    String?
+  /// Headcount band as written ("50-200", "~2,000").
+  size        String?
+  city        String?
+  country     String?
+  description String?
+  /// A, B, C...: how much this account is worth pursuing.
+  priority    String?
+  source      Channel?
+  custom      Json      @default("{}")
+  /// Who created the record: you, an import, the mail sync, Claude through MCP.
+  createdBy   Actor     @default(USER)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  people     Person[]
+  deals      Deal[]
+  activities Activity[]
+  tasks      Task[]
+  notes      Note[]
+  events     TimelineEvent[]
+  partners   Partner[]
+
+  @@unique([workspaceId, domain])
+  @@index([name])
+  @@index([deletedAt])
+}
+
+model Person {
+  id            String    @id @default(cuid())
+  workspaceId   String    @default(dbgenerated("current_setting('app.workspace_id'::text)"))
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  firstName     String    @default("")
+  lastName      String    @default("")
+  /// First address is the primary one.
+  emails        String[]
+  phones        String[]
+  jobTitle      String?
+  linkedinUrl   String?
+  city          String?
+  companyId     String?
+  company       Company?  @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  source        Channel?
+  /// Opt-in: when and where the person agreed to receive emails.
+  consentAt     DateTime?
+  consentSource String?
+  custom        Json      @default("{}")
+  /// Who created the record: you, an import, the mail sync, Claude through MCP.
+  createdBy     Actor     @default(USER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  contactFor   Deal[]                @relation("DealContact")
+  participants ActivityParticipant[]
+  tasks        Task[]
+  notes        Note[]
+  events       TimelineEvent[]
+  partners     Partner[]
+
+  @@unique([workspaceId, linkedinUrl])
+  @@index([companyId])
+  @@index([emails], type: Gin)
+  @@index([lastName, firstName])
+  @@index([deletedAt])
+}
+
+model Deal {
+  id               String    @id @default(cuid())
+  workspaceId      String    @default(dbgenerated("current_setting('app.workspace_id'::text)"))
+  workspace        Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name             String
+  productId        String
+  product          Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
+  stageId          String
+  stage            Stage     @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  /// Order within its stage column on the board.
+  position         Float     @default(0)
+  companyId        String?
+  company          Company?  @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  contactId        String?
+  contact          Person?   @relation("DealContact", fields: [contactId], references: [id], onDelete: SetNull)
+  /// Amount in minor units (cents) of `currency`.
+  amount           BigInt?
+  currency         String    @default("EUR")
+  /// Overrides the stage probability when set.
+  probability      Int?
+  closeDate        DateTime? @db.Date
+  source           Channel?
+  lostReason       String?
+  /// When the referring partner's commission on this deal was paid.
+  commissionPaidAt DateTime?
+  /// When the deal entered its current stage; drives "stale deal" alerts.
+  stageEnteredAt   DateTime  @default(now())
+  closedAt         DateTime?
+  custom           Json      @default("{}")
+  /// Who created the record: you, an import, the mail sync, Claude through MCP.
+  createdBy        Actor     @default(USER)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+
+  activities Activity[]
+  tasks      Task[]
+  notes      Note[]
+  events     TimelineEvent[]
+  partner    Partner?        @relation(fields: [partnerId], references: [id])
+  partnerId  String?
+
+  @@index([productId, stageId, position])
+  @@index([companyId])
+  @@index([deletedAt])
+  @@index([workspaceId])
+}
+
+// ---------------------------------------------------------------------------
+// Interactions
+// ---------------------------------------------------------------------------
+
+enum ActivityType {
+  CALL
+  EMAIL
+  LINKEDIN
+  MEETING
+  SOCIAL
+  SMS
+  OTHER
+}
+
+enum Direction {
+  INBOUND
+  OUTBOUND
+}
+
+enum ActivitySource {
+  MANUAL
+  GMAIL
+  CALENDAR
+  LINKEDIN_EXTENSION
+  MCP
+  IMPORT
+}
+
+/// One touchpoint with a prospect: call, email, LinkedIn message, meeting...
+model Activity {
+  id             String         @id @default(cuid())
+  workspaceId    String         @default(dbgenerated("current_setting('app.workspace_id'::text)"))
+  workspace      Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  type           ActivityType
+  direction      Direction?
+  occurredAt     DateTime       @default(now())
+  /// Meetings: end time.
+  endsAt         DateTime?
+  subject        String?
+  body           String?
+  /// Short result of the touch ("no answer", "interested, send quote").
+  outcome        String?
+  source         ActivitySource @default(MANUAL)
+  /// Gmail message id, Calendar event id...: makes syncs idempotent.
+  externalId     String?
+  /// Gmail thread id, to group emails of one conversation.
+  threadId       String?
+  url            String?
+  /// Company and deal were set by hand: the sync no longer relinks this activity.
+  manuallyLinked Boolean        @default(false)
+  companyId      String?
+  company        Company?       @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  dealId         String?
+  deal           Deal?          @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  /// Who created the record: you, an import, the mail sync, Claude through MCP.
+  createdBy      Actor          @default(USER)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  participants ActivityParticipant[]
+
+  @@unique([workspaceId, source, externalId])
+  @@index([companyId, occurredAt])
+  @@index([dealId, occurredAt])
+  @@index([threadId])
+}
+
+enum ParticipantRole {
+  FROM
+  TO
+  CC
+  BCC
+  ORGANIZER
+  ATTENDEE
+}
+
+/// A person (or a bare address) involved in an activity.
+model ActivityParticipant {
+  id          String          @id @default(cuid())
+  workspaceId String          @default(dbgenerated("current_setting('app.workspace_id'::text)"))
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  activityId  String
+  activity    Activity        @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  personId    String?
+  person      Person?         @relation(fields: [personId], references: [id], onDelete: SetNull)
+  /// Address or handle as seen in the source, kept to match a person later.
+  handle      String?
+  displayName String?
+  role        ParticipantRole @default(TO)
+
+  @@index([activityId])
+  @@index([personId])
+  @@index([handle])
+  @@index([workspaceId])
+}
+
+model Task {
+  id          String    @id @default(cuid())
+  workspaceId String    @default(dbgenerated("current_setting('app.workspace_id'::text)"))
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  title       String
+  body        String?
+  dueAt       DateTime?
+  completedAt DateTime?
+  companyId   String?
+  company     Company?  @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  personId    String?
+  person      Person?   @relation(fields: [personId], references: [id], onDelete: SetNull)
+  dealId      String?
+  deal        Deal?     @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  /// Who created the record: you, an import, the mail sync, Claude through MCP.
+  createdBy   Actor     @default(USER)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([completedAt, dueAt])
+  @@index([dealId])
+  @@index([personId])
+  @@index([companyId])
+  @@index([workspaceId])
+}
+
+model Note {
+  id          String    @id @default(cuid())
+  workspaceId String    @default(dbgenerated("current_setting('app.workspace_id'::text)"))
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  title       String?
+  body        String
+  companyId   String?
+  company     Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  personId    String?
+  person      Person?   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  dealId      String?
+  deal        Deal?     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  /// Who created the record: you, an import, the mail sync, Claude through MCP.
+  createdBy   Actor     @default(USER)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([companyId])
+  @@index([personId])
+  @@index([dealId])
+  @@index([workspaceId])
+}
+
+enum Actor {
+  USER
+  MCP
+  SYNC
+  IMPORT
+  SYSTEM
+}
+
+/// System history of a record: created, stage changed, field updated.
+model TimelineEvent {
+  id          String    @id @default(cuid())
+  workspaceId String    @default(dbgenerated("current_setting('app.workspace_id'::text)"))
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  /// "deal.created", "deal.stage_changed", "person.updated"...
+  name        String
+  /// { field: { before, after } } diffs, or event-specific data.
+  properties  Json      @default("{}")
+  actor       Actor     @default(USER)
+  happenedAt  DateTime  @default(now())
+  companyId   String?
+  company     Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  personId    String?
+  person      Person?   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  dealId      String?
+  deal        Deal?     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, happenedAt])
+  @@index([personId, happenedAt])
+  @@index([dealId, happenedAt])
+  @@index([workspaceId])
+}
+
+// ---------------------------------------------------------------------------
+// Google sync
+// ---------------------------------------------------------------------------
+
+/// A Google Workspace mailbox connected with OAuth, read to log emails and meetings with known contacts.
+model Mailbox {
+  id                String    @id @default(cuid())
+  workspaceId       String    @default(dbgenerated("current_setting('app.workspace_id'::text)"))
+  workspace         Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  email             String
+  /// Name of the account, shown on the Mailboxes page.
+  displayName       String
+  /// AES-256-GCM encrypted (lib/google/crypto.ts).
+  refreshToken      String
+  accessToken       String?
+  tokenExpiresAt    DateTime?
+  scopes            String[]
+  /// Logs emails and meetings with known contacts on their timelines.
+  syncContacts      Boolean   @default(true)
+  /// Google Calendar incremental sync token (primary calendar).
+  calendarSyncToken String?
+  calendarSyncedAt  DateTime?
+  active            Boolean   @default(true)
+  /// Gmail history cursor: the email sync reads what was added since.
+  historyId         String?
+  authFailedAt      DateTime?
+  lastError         String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([workspaceId, email])
+}
+
+/// A form or site that posts leads to /api/leads with its own secret key.
+model LeadSource {
+  id          String    @id @default(cuid())
+  workspaceId String    @default(dbgenerated("current_setting('app.workspace_id'::text)"))
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  /// SHA-256 of the secret key (the key itself is shown once).
+  keyHash     String    @unique
+  /// First characters of the key, to recognise it in the list.
+  keyPrefix   String
+  /// Opens a deal for this product (stage: first, source: Inbound).
+  productId   String?
+  product     Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+  /// Creates a "new lead" task to follow up personally.
+  createTask  Boolean   @default(true)
+  leadCount   Int       @default(0)
+  lastLeadAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([workspaceId])
+}
+
+enum PartnerType {
+  ACCOUNTANT
+  MSP
+  LAWYER
+  INSURER
+  CONSULTANT
+  INVESTOR
+  OTHER
+}
+
+enum PartnerStatus {
+  PROSPECT
+  ACTIVE
+  INACTIVE
+}
+
+/// Someone who sends you clients: an accountant, an MSP, a broker...
+model Partner {
+  id            String        @id @default(cuid())
+  workspaceId   String        @default(dbgenerated("current_setting('app.workspace_id'::text)"))
+  workspace     Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name          String
+  type          PartnerType   @default(OTHER)
+  status        PartnerStatus @default(PROSPECT)
+  companyId     String?
+  company       Company?      @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  contactId     String?
+  contact       Person?       @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  /// Commission on won deals, % of the deal amount.
+  commissionPct Int           @default(10)
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  deals         Deal[]
+
+  @@index([workspaceId])
+}
