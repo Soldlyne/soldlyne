@@ -311,6 +311,10 @@ model Workspace {
   mailboxes            Mailbox[]
   leadSources          LeadSource[]
   partners             Partner[]
+  sellerDetails        SellerDetails?
+  quoteCounter         QuoteCounter?
+  quotes               Quote[]
+  quoteLines           QuoteLine[]
 }
 
 enum MemberRole {
@@ -434,6 +438,7 @@ model Product {
   deals       Deal[]
   project     Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
   leadSources LeadSource[]
+  quoteLines  QuoteLine[]
 
   @@index([workspaceId])
 }
@@ -568,6 +573,7 @@ model Company {
   notes      Note[]
   events     TimelineEvent[]
   partners   Partner[]
+  quotes     Quote[]
 
   @@unique([workspaceId, domain])
   @@index([name])
@@ -605,6 +611,7 @@ model Person {
   notes        Note[]
   events       TimelineEvent[]
   partners     Partner[]
+  quotes       Quote[]
 
   @@unique([workspaceId, linkedinUrl])
   @@index([companyId])
@@ -654,6 +661,7 @@ model Deal {
   events     TimelineEvent[]
   partner    Partner?        @relation(fields: [partnerId], references: [id])
   partnerId  String?
+  quotes     Quote[]
 
   @@index([productId, stageId, position])
   @@index([companyId])
@@ -929,5 +937,124 @@ model Partner {
   updatedAt     DateTime      @updatedAt
   deals         Deal[]
 
+  @@index([workspaceId])
+}
+
+// ---------------------------------------------------------------------------
+// Quotes
+// ---------------------------------------------------------------------------
+
+/// What this workspace's quotes say about the seller, and what a new quote starts from. The workspace's own text: Soldlyne checks nothing about it.
+model SellerDetails {
+  id                         String    @id @default(cuid())
+  workspaceId                String    @unique @default(dbgenerated("current_setting('app.workspace_id'::text)"))
+  workspace                  Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  legalName                  String?
+  address                    String?
+  companyNumber              String?
+  vatNumber                  String?
+  contactEmail               String?
+  defaultCurrency            String    @default("EUR")
+  /// Thousandths of a percent: 5.5% is 5500.
+  defaultTaxRateMilliPercent Int       @default(0)
+  defaultValidityDays        Int       @default(30)
+  defaultTerms               String?
+  /// New quotes read 2026-0042 rather than 0042. The count itself runs on across years.
+  yearlyQuoteNumbers         Boolean   @default(false)
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
+}
+
+/// A workspace's last quote number. Taking the next one locks this row until its transaction ends, so a rollback gives the number back and none is skipped.
+model QuoteCounter {
+  id          String    @id @default(cuid())
+  workspaceId String    @unique @default(dbgenerated("current_setting('app.workspace_id'::text)"))
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  last        Int       @default(0)
+}
+
+/// Expired isn't stored: it is a sent quote past its valid-until date, worked out when reading (lib/quotes/status.ts), so no job has to write it and no row can disagree with its date.
+enum QuoteStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  DECLINED
+}
+
+model Quote {
+  id                String      @id @default(cuid())
+  workspaceId       String      @default(dbgenerated("current_setting('app.workspace_id'::text)"))
+  workspace         Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  /// From QuoteCounter, once, when the quote is created. No quote is ever deleted, so none goes missing.
+  number            Int
+  /// What people read: 0042, or 2026-0042. Fixed with the number.
+  reference         String
+  status            QuoteStatus @default(DRAFT)
+  /// Set null if a deal is ever purged: the customer's copy and its number outlive it.
+  dealId            String?
+  deal              Deal?       @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  companyId         String?
+  company           Company?    @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  contactId         String?
+  contact           Person?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  currency          String      @default("EUR")
+  issueDate         DateTime    @db.Date
+  /// The last day it can be accepted, whole day included (UTC).
+  validUntil        DateTime    @db.Date
+  notes             String?
+  terms             String?
+  /// Before tax, the tax and the two together, in minor units of `currency`, from lib/quotes/totals.ts.
+  subtotalMinor     BigInt      @default(0)
+  taxMinor          BigInt      @default(0)
+  totalMinor        BigInt      @default(0)
+  /// [{ rateMilliPercent, baseMinor, taxMinor }], one per tax rate. Amounts as strings: JSON has no big integers.
+  taxBreakdown      Json        @default("[]")
+  /// Copied when sent, so later edits to the seller or the customer don't change a sent quote.
+  sellerCopy        Json?
+  customerCopy      Json?
+  /// SHA-256 of the customer's link; the link itself is mailed or shown once.
+  tokenHash         String?     @unique
+  sentAt            DateTime?
+  acceptedName      String?
+  acceptedAt        DateTime?
+  acceptedIp        String?
+  acceptedUserAgent String?
+  declinedAt        DateTime?
+  declineReason     String?
+  /// Who created the record: you, an import, the mail sync, Claude through MCP.
+  createdBy         Actor       @default(USER)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  lines             QuoteLine[]
+
+  @@unique([workspaceId, number])
+  @@index([workspaceId, status])
+  @@index([dealId])
+  @@index([companyId])
+  @@index([contactId])
+}
+
+model QuoteLine {
+  id                   String    @id @default(cuid())
+  workspaceId          String    @default(dbgenerated("current_setting('app.workspace_id'::text)"))
+  workspace            Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  quoteId              String
+  quote                Quote     @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  position             Int
+  /// Where the description came from, if anywhere. The description stays as written whatever becomes of the product.
+  productId            String?
+  product              Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+  description          String
+  /// Thousandths of a unit: 1.5 days is 1500.
+  quantityMilli        BigInt
+  unitPriceMinor       BigInt
+  /// Thousandths of a percent: 5.5% is 5500.
+  taxRateMilliPercent  Int
+  discountMilliPercent Int?
+  /// Quantity times price less the discount, before tax, from lib/quotes/totals.ts.
+  netMinor             BigInt
+
+  @@index([quoteId, position])
+  @@index([productId])
   @@index([workspaceId])
 }

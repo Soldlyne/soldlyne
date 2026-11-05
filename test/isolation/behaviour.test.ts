@@ -34,7 +34,11 @@ async function createEveryModel() {
   const mailbox = await prisma.mailbox.create({ data: { email: `me@${tag}.example`, displayName: 'Me', refreshToken: 'x' } })
   const leadSource = await prisma.leadSource.create({ data: { name: `Source ${tag}`, keyHash: tag, keyPrefix: 'lead_', productId: product.id } })
   const invitation = await prisma.invitation.create({ data: { email: `someone@${tag}.example`, tokenHash: tag, expiresAt: new Date(Date.now() + 86_400_000) } })
-  return Object.fromEntries(Object.entries({ entity, project, product, stage, customField, view, company, person, partner, deal, activity, activityParticipant, task, note, timelineEvent, mailbox, leadSource, invitation }).map(([model, { id }]) => [model[0].toUpperCase() + model.slice(1), id])) as Record<string, string>
+  const sellerDetails = await prisma.sellerDetails.create({ data: { legalName: `Seller ${tag}` } })
+  const quoteCounter = await prisma.quoteCounter.create({ data: {} })
+  const quote = await prisma.quote.create({ data: { number: 1, reference: '0001', issueDate: new Date(), validUntil: new Date(), tokenHash: tag, dealId: deal.id, companyId: company.id, contactId: person.id } })
+  const quoteLine = await prisma.quoteLine.create({ data: { quoteId: quote.id, productId: product.id, position: 0, description: 'Line', quantityMilli: BigInt(1000), unitPriceMinor: BigInt(100), taxRateMilliPercent: 20000, netMinor: BigInt(100) } })
+  return Object.fromEntries(Object.entries({ entity, project, product, stage, customField, view, company, person, partner, deal, activity, activityParticipant, task, note, timelineEvent, mailbox, leadSource, invitation, sellerDetails, quoteCounter, quote, quoteLine }).map(([model, { id }]) => [model[0].toUpperCase() + model.slice(1), id])) as Record<string, string>
 }
 
 /** A new row with only what each model requires, parents taken from the given rows. */
@@ -57,7 +61,14 @@ const NEW_ROW: Record<string, (rows: Record<string, string>) => object> = {
   Mailbox: () => ({ email: `${unique()}@example.com`, displayName: 'Me', refreshToken: 'x' }),
   LeadSource: () => ({ name: unique(), keyHash: unique(), keyPrefix: 'lead_' }),
   Invitation: () => ({ email: `${unique()}@example.com`, tokenHash: unique(), expiresAt: new Date() }),
+  SellerDetails: () => ({}),
+  QuoteCounter: () => ({}),
+  Quote: () => ({ number: Math.floor(Math.random() * 1_000_000_000) + 2, reference: unique(), issueDate: new Date(), validUntil: new Date() }),
+  QuoteLine: (rows) => ({ quoteId: rows.Quote, position: 1, description: unique(), quantityMilli: BigInt(1000), unitPriceMinor: BigInt(100), taxRateMilliPercent: 20000, netMinor: BigInt(100) }),
 }
+
+/** A workspace holds one of each of these: the row its test adds takes the place of the one already there. */
+const ONE_PER_WORKSPACE = ['SellerDetails', 'QuoteCounter']
 
 const models = tenantModels().map(({ name }) => name)
 const links = tenantModels().flatMap(({ name, links: own }) => own.filter(({ parent }) => parent !== 'Workspace' && !TRUSTED_MODELS.includes(parent)).map((link) => ({ model: name, ...link })))
@@ -116,9 +127,11 @@ describe('running as workspace A, with rows in A and B for every tenant model', 
     asA(async () => {
       await expect(delegate(model).create({ data: { ...NEW_ROW[model](rowsA), workspaceId: workspaceB } })).rejects.toThrow()
       await expect(delegate(model).update({ where: { id: rowsA[model] }, data: { workspaceId: workspaceB } })).rejects.toThrow()
+      if (ONE_PER_WORKSPACE.includes(model)) await delegate(model).delete({ where: { id: rowsA[model] } })
       const created = (await delegate(model).create({ data: NEW_ROW[model](rowsA) })) as unknown as { id: string; workspaceId: string }
       expect(created.workspaceId).toBe(workspaceA)
-      await delegate(model).delete({ where: { id: created.id } })
+      if (ONE_PER_WORKSPACE.includes(model)) rowsA[model] = created.id
+      else await delegate(model).delete({ where: { id: created.id } })
     }),
   )
 
@@ -201,9 +214,18 @@ describe('with no workspace', () => {
     expect(await asAny(trustedPrisma, 'Mailbox').count()).toBe(0)
   })
 
-  it('only the two tables looked up before a workspace is known open to the trusted path', async () => {
+  it('only the three tables looked up before a workspace is known open to the trusted path', async () => {
     expect(await trustedPrisma.leadSource.findUnique({ where: { keyHash: (await asA(() => prisma.leadSource.findUniqueOrThrow({ where: { id: rowsA.LeadSource } }))).keyHash } })).not.toBeNull()
     expect(await trustedPrisma.invitation.findFirst({ where: { id: rowsB.Invitation } })).not.toBeNull()
+    expect(await trustedPrisma.quote.findUnique({ where: { tokenHash: (await asA(() => prisma.quote.findUniqueOrThrow({ where: { id: rowsA.Quote } }))).tokenHash! } })).not.toBeNull()
+  })
+
+  it('the trusted path can read a quote to find its workspace, and write nothing to one', async () => {
+    const [owner] = await trustedPrisma.$queryRaw<{ bypasses: boolean }[]>`SELECT rolsuper OR rolbypassrls AS bypasses FROM pg_roles WHERE rolname = current_user`
+    if (owner.bypasses) return
+    expect(await trustedPrisma.quote.updateMany({ where: { id: rowsA.Quote }, data: { reference: 'Stolen' } })).toEqual({ count: 0 })
+    expect(await trustedPrisma.quoteLine.count()).toBe(0)
+    expect(await trustedPrisma.sellerDetails.count()).toBe(0)
   })
 })
 

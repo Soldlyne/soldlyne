@@ -5,6 +5,7 @@ import { z } from 'zod'
 import type { Prisma } from '@prisma/client'
 import { currentWorkspaceId, prisma } from '@/lib/prisma'
 import { requireActor, currentActor } from '@/lib/actor'
+import { topPosition } from './deal-stage'
 import { diffOf, recordEvent, recordUpdate } from './timeline'
 import { normalizeDomain, normalizeEmail, parseMoney } from './format'
 
@@ -191,11 +192,6 @@ const dealFields = z.object({
   custom: customPatch,
 })
 
-async function topPosition(stageId: string, productId: string) {
-  const first = await prisma.deal.findFirst({ where: { stageId, productId, deletedAt: null }, orderBy: { position: 'asc' } })
-  return (first?.position ?? 1) - 1
-}
-
 export async function createDeal(input: z.input<typeof dealFields> & { name: string; productId: string }) {
   await guard()
   const data = dealFields.parse(input)
@@ -214,7 +210,7 @@ export async function createDeal(input: z.input<typeof dealFields> & { name: str
       amount: data.amount ?? null,
       source: data.source,
       closeDate: data.closeDate,
-      position: await topPosition(stageId, data.productId!),
+      position: await topPosition(prisma, stageId, data.productId!),
       createdBy: currentActor(),
     },
   })
@@ -233,7 +229,7 @@ export async function updateDeal(id: string, input: z.input<typeof dealFields>) 
     Object.assign(data, {
       stageEnteredAt: new Date(),
       closedAt: stage.kind === 'OPEN' ? null : new Date(),
-      position: await topPosition(stage.id, patch.productId ?? before.productId),
+      position: await topPosition(prisma, stage.id, patch.productId ?? before.productId),
     })
     await recordEvent('deal.stage_changed', { dealId: id, companyId: before.companyId }, { from: before.stage.name, to: stage.name })
   }

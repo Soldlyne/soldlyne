@@ -17,6 +17,14 @@ describe('own mail', () => {
     expect(JSON.parse(String(init.body))).toEqual({ from: SET_UP.SOLDLYNE_MAIL_FROM, to: ['a@example.com'], subject: 'Subject', text: 'Text' })
   })
 
+  it('says who a reply goes to when asked', async () => {
+    const fetch = vi.fn(async () => new Response('{"id":"1"}'))
+    vi.stubGlobal('fetch', fetch)
+    await sendOwnMail(SET_UP, { ...MAIL, replyTo: 'seller@example.com' })
+    const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit]
+    expect(JSON.parse(String(init.body)).reply_to).toBe('seller@example.com')
+  })
+
   it.each([{}, { RESEND_API_KEY: 'key' }, { SOLDLYNE_MAIL_FROM: 'a@example.com' }])('sends nothing without both settings: %o', async (settings) => {
     const fetch = vi.fn()
     vi.stubGlobal('fetch', fetch)
