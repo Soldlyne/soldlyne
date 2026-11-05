@@ -10,7 +10,7 @@ export function mcpClient(origin: string) {
       const workspaces = await workspacesOf(userId)
       const handler = createMcpHandler(() => soldlyneServer({ userId, clientId: 'test-client', workspaces }))
       const response = await handler.fetch(
-        new Request(`${origin}/mcp`, {
+        new Request(`${origin}/api/mcp`, {
           method: 'POST',
           headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', 'mcp-protocol-version': '2025-06-18' },
           body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),

@@ -16,7 +16,7 @@ import { hasLiveInvitation } from './workspaces/invitation-gate'
 const PASSWORD_SIGN_UP = '/sign-up/email'
 
 /** The MCP server's address: the only audience the assistants' tokens are good for. */
-export const mcpResource = () => `${publicUrl()}/mcp`
+export const mcpResource = () => `${publicUrl()}/api/mcp`
 
 /** Who signs tokens: Better Auth, under its base path. */
 export const tokenIssuer = () => `${publicUrl()}/api/auth`
@@ -28,7 +28,7 @@ const OAUTH_SCOPES = ['openid', 'profile', 'email', 'offline_access']
  * password if it allows them. Either way, only the addresses in SOLDLYNE_ADMINS and those with an
  * invitation still good may get an account. Soldlyne is also an OAuth server for assistants: Claude,
  * ChatGPT or any MCP client registers itself, a member signs in and consents, and the assistant gets
- * a token for /mcp.
+ * a token for /api/mcp.
  */
 export function createAuth(settings: SignInSettings) {
   const company = companyLogin(settings)
@@ -99,7 +99,7 @@ export function createAuth(settings: SignInSettings) {
   })
 }
 
-/** Whose token a request to /mcp carries: its signature, issuer, audience and expiry checked. Throws when any fails. */
+/** Whose token a request to /api/mcp carries: its signature, issuer, audience and expiry checked. Throws when any fails. */
 export async function memberOfToken(request: Request): Promise<{ userId: string; clientId: string }> {
   const issuer = tokenIssuer()
   const payload = await verifyAccessTokenRequest(requestToResourceInput(request), { jwksUrl: `${issuer}/jwks`, verifyOptions: { issuer, audience: mcpResource() } })

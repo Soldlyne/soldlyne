@@ -14,7 +14,7 @@ The CRM that takes over once someone answers: companies, people, deals, pipeline
 - **Partners.** Who referred which deal, and the commission owed.
 - **Quotes.** From a deal to a quote the customer accepts online: lines with a tax rate each and an optional discount, per-rate tax, numbers that never skip, a PDF, and a link they open with no account. Accepting moves the deal to Won. Details are [below](#quotes).
 - **Workspaces.** One per company, with its own records, stages, products, mailboxes and lead keys. One account can belong to several and switch from the sidebar. Owners and admins invite people by address.
-- **Assistants.** An MCP server at `/mcp`, so Claude, ChatGPT or any MCP client can run the pipeline. They connect through OAuth, and one connection covers all the member's workspaces. Everything an assistant does is recorded as done by MCP.
+- **Assistants.** An MCP server at `/api/mcp`, so Claude, ChatGPT or any MCP client can run the pipeline. They connect through OAuth, and one connection covers all the member's workspaces. Everything an assistant does is recorded as done by MCP.
 - **A read API.** `GET /api/v1/deals`, `/companies`, `/stages` and `/products`, with a key per workspace, so another app can read the pipeline. Details are [below](#reading-from-another-app).
 
 Soldlyne never sends prospecting email. The only mail it sends is its own to its members (confirmation links, forgotten passwords and invitations), and a quote's link to the customer of a deal, when a member sends it.
@@ -135,10 +135,10 @@ A hosted edition is an install like any other, with more workspaces on it. Set i
 
 ## Connecting an assistant
 
-Add `<your address>/mcp` to Claude, ChatGPT or any MCP client as a remote connector. The client registers itself, you sign in and approve it, and it acts for you in every workspace you belong to. In Claude Code:
+Add `<your address>/api/mcp` to Claude, ChatGPT or any MCP client as a remote connector. The client registers itself, you sign in and approve it, and it acts for you in every workspace you belong to. In Claude Code:
 
 ```bash
-claude mcp add --transport http soldlyne <your address>/mcp
+claude mcp add --transport http soldlyne <your address>/api/mcp
 ```
 
 If you belong to several workspaces, each tool takes a `workspace` argument, an id or an exact name from `list_workspaces`, and a call without it is refused: there is no hidden current workspace. With one workspace there's no such argument. No tool invites, removes or changes members, accepts a quote for a customer, or changes the seller details. `send_quote` writes to a real person, so an assistant is told to use it only once you've said yes, and the customer's link stays out of its conversation. There's no screen yet to see or cancel an assistant's connection: a member's access ends when they leave a workspace or lose their account, and a token lasts an hour unless refreshed.

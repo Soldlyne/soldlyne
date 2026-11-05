@@ -137,7 +137,7 @@ describe('a member with several workspaces', () => {
     const handler = createMcpHandler(() => soldlyneServer({ userId: leaver, clientId: 'test-client', workspaces }))
     await trustedPrisma.member.delete({ where: { workspaceId_userId: { workspaceId: alpha, userId: leaver } } })
     const response = await handler.fetch(
-      new Request(`${ORIGIN}/mcp`, {
+      new Request(`${ORIGIN}/api/mcp`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', 'mcp-protocol-version': '2025-06-18' },
         body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'list_stages', arguments: { workspace: 'Alpha' } } }),
