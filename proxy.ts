@@ -3,8 +3,8 @@ import { getSessionCookie } from 'better-auth/cookies'
 
 const PUBLIC_PAGES = ['/login', '/reset-password']
 
-/** They say for themselves what someone with no session gets: an invitation's link and an assistant's link both come back after signing in. */
-const SELF_CHECKING = ['/join/', '/workspace/']
+/** They say for themselves what someone with no session gets: an invitation's link and an assistant's link both come back after signing in, and a quote's link is for a customer with no account at all. */
+const SELF_CHECKING = ['/join/', '/workspace/', '/q/']
 
 // Optimistic check only: pages and actions verify the session themselves.
 export function proxy(request: NextRequest) {
