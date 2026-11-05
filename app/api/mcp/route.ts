@@ -8,7 +8,7 @@ import { answerInFull } from './answer-in-full'
 export const maxDuration = 60
 
 /** Where an assistant learns how to sign in, per the MCP authorization spec (RFC 9728). */
-const resourceMetadataUrl = () => `${publicUrl()}/.well-known/oauth-protected-resource/mcp`
+const resourceMetadataUrl = () => `${publicUrl()}/.well-known/oauth-protected-resource/api/mcp`
 
 function unauthorized(detail: string): Response {
   return Response.json(

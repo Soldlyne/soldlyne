@@ -10,7 +10,7 @@ const SELF_CHECKING = ['/join/', '/workspace/', '/q/']
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const publicApi = ['/api/auth/', '/api/cron/', '/api/leads', '/.well-known/']
-  if (publicApi.some((prefix) => pathname.startsWith(prefix)) || pathname === '/mcp') {
+  if (publicApi.some((prefix) => pathname.startsWith(prefix)) || pathname === '/api/mcp') {
     return NextResponse.next()
   }
   // These pages check the session themselves: a stale cookie must not bounce them back to /.

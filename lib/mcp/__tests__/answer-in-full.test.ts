@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { answerInFull } from '@/app/mcp/answer-in-full'
+import { answerInFull } from '@/app/api/mcp/answer-in-full'
 
-const post = (body: unknown) => new Request('http://localhost/mcp', { method: 'POST', body: JSON.stringify(body) })
+const post = (body: unknown) => new Request('http://localhost/api/mcp', { method: 'POST', body: JSON.stringify(body) })
 
 function slowStream(onEnd: () => void) {
   return new Response(
@@ -31,7 +31,7 @@ describe('answerInFull', () => {
     let ended = false
     await answerInFull(post({ method: 'tools/list' }), async () => slowStream(() => (ended = true)))
     expect(ended).toBe(false)
-    const get = new Request('http://localhost/mcp')
+    const get = new Request('http://localhost/api/mcp')
     await answerInFull(get, async () => slowStream(() => (ended = true)))
     expect(ended).toBe(false)
   })

@@ -1,7 +1,7 @@
 import { mcpResource, tokenIssuer } from '@/lib/auth'
 
 /**
- * What an assistant reads after a 401 from /mcp (RFC 9728): the resource it is reaching, and which
+ * What an assistant reads after a 401 from /api/mcp (RFC 9728): the resource it is reaching, and which
  * server signs tokens for it. The issuer is Better Auth's, under its base path. Nothing here builds
  * auth, so a client finding its way doesn't wake the database.
  */
