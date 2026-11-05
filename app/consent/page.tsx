@@ -31,7 +31,7 @@ export default async function ConsentPage({ searchParams }: PageProps<'/consent'
         <h1 className="text-xl font-semibold">{client?.client_name ?? 'An assistant'} wants to use Soldlyne</h1>
         {client?.client_uri && <p className="mt-1 font-mono text-xs text-muted-foreground">{client.client_uri}</p>}
         <p className="mt-4 text-sm text-muted-foreground">
-          It will act on your behalf in {workspaces.length > 1 ? `all your workspaces: ${inWords(workspaces.map(({ name }) => name))}` : `your workspace, ${workspaces[0].name}`}. It can read your companies, people and deals, move deals along, and log activities, tasks and notes. Everything it does is recorded as done by an assistant. It cannot invite, remove or change members.
+          It will act on your behalf in {workspaces.length > 1 ? `all your workspaces: ${inWords(workspaces.map(({ name }) => name))}` : `your workspace, ${workspaces[0].name}`}. It can read your companies, people and deals, move deals along, log activities, tasks and notes, and write quotes and send them to your customers. Everything it does is recorded as done by an assistant. It cannot invite, remove or change members, accept a quote for a customer, or change your seller details.
         </p>
         <p className="mt-3 text-sm text-muted-foreground">If you join another workspace later, it will reach that one too.</p>
         <div className="mt-6">
