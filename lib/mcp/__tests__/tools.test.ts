@@ -44,10 +44,10 @@ beforeEach(() => {
   process.env.BETTER_AUTH_URL = ORIGIN
 })
 
-const TOOLS = ['daily_brief', 'search_records', 'get_record', 'list_deals', 'list_catalog', 'list_stages', 'list_partners', 'create_company', 'create_person', 'create_deal', 'update_deal', 'log_activity', 'create_task', 'complete_task', 'add_note', 'create_partner', 'set_deal_partner', 'list_quotes', 'read_quote', 'create_quote', 'update_quote', 'send_quote']
+const TOOLS = ['daily_brief', 'search_records', 'get_record', 'list_deals', 'list_catalog', 'list_stages', 'list_partners', 'create_company', 'create_person', 'create_deal', 'update_deal', 'log_activity', 'create_task', 'complete_task', 'add_note', 'create_partner', 'set_deal_partner', 'list_quotes', 'read_quote', 'create_quote', 'update_quote', 'send_quote', 'list_connectors', 'connect_service', 'check_connection']
 
 describe('a member with one workspace', () => {
-  it('sees the 22 tools and list_workspaces, with no workspace argument', async () => {
+  it('sees the 25 tools and list_workspaces, with no workspace argument', async () => {
     const { tools } = await clientFor(solo)('tools/list')
     expect(tools.map(({ name }: { name: string }) => name).sort()).toEqual([...TOOLS, 'list_workspaces'].sort())
     for (const { inputSchema } of tools) expect(inputSchema.properties ?? {}).not.toHaveProperty('workspace')

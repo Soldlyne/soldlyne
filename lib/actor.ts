@@ -1,6 +1,6 @@
 import 'server-only'
 import { AsyncLocalStorage } from 'node:async_hooks'
-import type { Actor } from '@prisma/client'
+import type { Actor, MemberRole } from '@prisma/client'
 import { getSession } from './session'
 
 /**
@@ -10,12 +10,15 @@ import { getSession } from './session'
  * the right actor.
  */
 // One per process: each of Next's server bundles loads its own copy of this module.
-const globalForActor = globalThis as unknown as { mcpActor?: AsyncLocalStorage<{ actor: Actor; tokenId: string }> }
+const globalForActor = globalThis as unknown as { mcpActor?: AsyncLocalStorage<{ actor: Actor; tokenId: string; role?: MemberRole }> }
 const store = (globalForActor.mcpActor ??= new AsyncLocalStorage())
 
-export function withMcpActor<T>(tokenId: string, fn: () => Promise<T>): Promise<T> {
-  return store.run({ actor: 'MCP', tokenId }, fn)
+export function withMcpActor<T>(tokenId: string, fn: () => Promise<T>, role?: MemberRole): Promise<T> {
+  return store.run({ actor: 'MCP', tokenId, role }, fn)
 }
+
+/** The role, in the workspace of this call, of the member an assistant acts for. */
+export const mcpMemberRole = () => store.getStore()?.role
 
 export function currentActor(): Actor {
   return store.getStore()?.actor ?? 'USER'
