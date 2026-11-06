@@ -39,7 +39,8 @@ async function createEveryModel() {
   const quote = await prisma.quote.create({ data: { number: 1, reference: '0001', issueDate: new Date(), validUntil: new Date(), tokenHash: tag, dealId: deal.id, companyId: company.id, contactId: person.id } })
   const quoteLine = await prisma.quoteLine.create({ data: { quoteId: quote.id, productId: product.id, position: 0, description: 'Line', quantityMilli: BigInt(1000), unitPriceMinor: BigInt(100), taxRateMilliPercent: 20000, netMinor: BigInt(100) } })
   const connection = await prisma.connection.create({ data: { kind: tag, sealedCredentials: 'x', connectedBy: 'owner@acme.example' } })
-  return Object.fromEntries(Object.entries({ entity, project, product, stage, customField, view, company, person, partner, deal, activity, activityParticipant, task, note, timelineEvent, mailbox, leadSource, invitation, sellerDetails, quoteCounter, quote, quoteLine, connection }).map(([model, { id }]) => [model[0].toUpperCase() + model.slice(1), id])) as Record<string, string>
+  const apiKey = await prisma.apiKey.create({ data: { name: `Key ${tag}`, keyHash: tag, prefix: 'sl_' } })
+  return Object.fromEntries(Object.entries({ entity, project, product, stage, customField, view, company, person, partner, deal, activity, activityParticipant, task, note, timelineEvent, mailbox, leadSource, invitation, sellerDetails, quoteCounter, quote, quoteLine, connection, apiKey }).map(([model, { id }]) => [model[0].toUpperCase() + model.slice(1), id])) as Record<string, string>
 }
 
 /** A new row with only what each model requires, parents taken from the given rows. */
@@ -67,6 +68,7 @@ const NEW_ROW: Record<string, (rows: Record<string, string>) => object> = {
   Quote: () => ({ number: Math.floor(Math.random() * 1_000_000_000) + 2, reference: unique(), issueDate: new Date(), validUntil: new Date() }),
   QuoteLine: (rows) => ({ quoteId: rows.Quote, position: 1, description: unique(), quantityMilli: BigInt(1000), unitPriceMinor: BigInt(100), taxRateMilliPercent: 20000, netMinor: BigInt(100) }),
   Connection: () => ({ kind: unique(), sealedCredentials: 'x', connectedBy: 'owner@acme.example' }),
+  ApiKey: () => ({ name: unique(), keyHash: unique(), prefix: 'sl_' }),
 }
 
 /** A workspace holds one of each of these: the row its test adds takes the place of the one already there. */
@@ -217,16 +219,18 @@ describe('with no workspace', () => {
     expect(await asAny(trustedPrisma, 'Connection').count()).toBe(0)
   })
 
-  it('only the three tables looked up before a workspace is known open to the trusted path', async () => {
+  it('only the four tables looked up before a workspace is known open to the trusted path', async () => {
     expect(await trustedPrisma.leadSource.findUnique({ where: { keyHash: (await asA(() => prisma.leadSource.findUniqueOrThrow({ where: { id: rowsA.LeadSource } }))).keyHash } })).not.toBeNull()
     expect(await trustedPrisma.invitation.findFirst({ where: { id: rowsB.Invitation } })).not.toBeNull()
     expect(await trustedPrisma.quote.findUnique({ where: { tokenHash: (await asA(() => prisma.quote.findUniqueOrThrow({ where: { id: rowsA.Quote } }))).tokenHash! } })).not.toBeNull()
+    expect(await trustedPrisma.apiKey.findUnique({ where: { keyHash: (await asA(() => prisma.apiKey.findUniqueOrThrow({ where: { id: rowsA.ApiKey } }))).keyHash } })).not.toBeNull()
   })
 
-  it('the trusted path can read a quote to find its workspace, and write nothing to one', async () => {
+  it('the trusted path can read a quote or an API key to find its workspace, and write nothing to one', async () => {
     const [owner] = await trustedPrisma.$queryRaw<{ bypasses: boolean }[]>`SELECT rolsuper OR rolbypassrls AS bypasses FROM pg_roles WHERE rolname = current_user`
     if (owner.bypasses) return
     expect(await trustedPrisma.quote.updateMany({ where: { id: rowsA.Quote }, data: { reference: 'Stolen' } })).toEqual({ count: 0 })
+    expect(await trustedPrisma.apiKey.updateMany({ where: { id: rowsA.ApiKey }, data: { revokedAt: null, scopes: ['write'] } })).toEqual({ count: 0 })
     expect(await trustedPrisma.quoteLine.count()).toBe(0)
     expect(await trustedPrisma.sellerDetails.count()).toBe(0)
   })

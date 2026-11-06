@@ -9,7 +9,7 @@ const SELF_CHECKING = ['/join/', '/workspace/', '/q/']
 // Optimistic check only: pages and actions verify the session themselves.
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
-  const publicApi = ['/api/auth/', '/api/cron/', '/api/leads', '/.well-known/']
+  const publicApi = ['/api/auth/', '/api/cron/', '/api/leads', '/api/v1/', '/.well-known/']
   if (publicApi.some((prefix) => pathname.startsWith(prefix)) || pathname === '/api/mcp') {
     return NextResponse.next()
   }

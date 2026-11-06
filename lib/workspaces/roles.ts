@@ -1,6 +1,6 @@
 import type { MemberRole } from '@prisma/client'
 
-/** Who may do what in a workspace's team. Being in a workspace is what opens its data; the role only says who runs its team, who speaks for the company on its quotes, and who holds its accounts at outside services. */
+/** Who may do what in a workspace's team. Being in a workspace is what opens its data; the role only says who runs its team, who speaks for the company on its quotes, who holds its accounts at outside services, and who hands out API keys. */
 
 export const ROLES: readonly MemberRole[] = ['OWNER', 'ADMIN', 'MEMBER']
 
@@ -16,6 +16,7 @@ export const managesTeam = (role: MemberRole | undefined) => role === 'OWNER' ||
 export const managesSeller = managesTeam
 
 export const managesConnectors = managesTeam
+export const managesApiKeys = managesTeam
 
 const NOT_A_MANAGER = 'Only owners and admins manage the team.'
 const OWNERS_ONLY = 'Only an owner can name, change or remove an owner.'
