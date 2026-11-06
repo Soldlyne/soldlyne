@@ -10,15 +10,16 @@
 2. **Pipelines.** A board for all deals and one per project, with shared stages. Drag a deal along, or change its stage from its page. Deals stuck for 14 days or with no next step are flagged.
 3. **Reports.** Over a period, for all deals or one project: deals won, lost and open, weighted value, a stage-to-stage funnel, channels, activity.
 4. **Lead capture.** A site's server posts each form to `/api/leads` with that form's key. Soldlyne creates or updates the person and their company, logs the form on the timeline, can open a deal and a follow-up task, and records the opt-in.
-5. **Mailbox sync.** Connected Gmail and Google Calendar accounts are read every hour, and emails and meetings with known people land on their timelines.
+5. **Mailbox sync.** Connected Gmail and Google Calendar accounts are read every hour through the company's own Google client, and emails and meetings with known people land on their timelines.
 6. **Partners.** Who referred which deal, and the commission owed once it is won.
 7. **Quotes.** From a deal to a quote the customer accepts online. Lines with a quantity, a price, a tax rate and an optional discount, tax shown per rate, a number per workspace that never skips, the seller's details from Settings. Sending freezes it and gives the customer a link: they read it, download its PDF, and accept with a typed name or decline, with no account. Accepting moves the deal to the first Won stage. A sent quote changes by being copied into a new one.
 8. **Workspaces.** One per company on an install, walled off by the database. One account can belong to several and switch between them. Owners and admins invite people by address and manage the team in Settings.
-9. **Assistants.** An MCP server at `/api/mcp`, reached through OAuth, with 22 tools: the daily brief, search, reading records, creating and moving deals, logging calls, tasks and notes, partners, writing and sending quotes. A member's connection covers all their workspaces, and a twenty-third tool lists them. They use the same code as the screens.
+9. **Assistants.** An MCP server at `/api/mcp`, reached through OAuth, with 25 tools: the daily brief, search, reading records, creating and moving deals, logging calls, tasks and notes, partners, writing and sending quotes, the state of connectors. A member's connection covers all their workspaces, and a twenty-sixth tool lists them. They use the same code as the screens.
+10. **Connectors.** A workspace's own accounts at outside services, connected in the app: its Google client and its Resend account. Owners and admins connect, check and disconnect them; other members see their state.
 
 ## 2. Rules it keeps
 
-- **It never sends prospecting email.** Sending to people who asked for nothing is Coldlyne's job, with Coldlyne's safeguards. Soldlyne's Google access is read-only, and its one mail provider, Resend, carries only its own mail: to its members, confirmation links, forgotten passwords and invitations; to the customer of a deal, the link to a quote a member chose to send. Resend's terms forbid cold email anyway.
+- **It never sends prospecting email.** Sending to people who asked for nothing is Coldlyne's job, with Coldlyne's safeguards. Soldlyne's Google access is read-only, and its one mail provider, Resend, carries only transactional mail: the install's own account writes to its members (confirmation links, forgotten passwords and invitations); a company's own account writes to the customer of a deal (the link to a quote a member chose to send). Resend's terms forbid cold email anyway.
 - **Lead capture records consent.** A person who ticked the box on a form gets the date and the form and page it came from. Nobody is marked as opted in without it, and a later form without the box doesn't undo it. Keys are per form, stored hashed, and shown once.
 - **The shared do-not-contact rule belongs with Coldlyne.** Who must not be written to is decided where messages leave from. Soldlyne keeps no such list of its own today; see section 4.
 - **What isn't a contact stays out.** The sync matches people already in Soldlyne and creates nobody from an inbox. Newsletters, notifications and colleagues (the mailbox's own domain) never reach a timeline.
@@ -29,8 +30,10 @@
 - **What was sent stays as sent.** Sending copies the seller and the customer onto the quote, and a sent quote can't be edited. Totals are stored, not worked out again.
 - **Provenance.** Each record says who or what made it (a member, an import, the sync, an assistant) and its timeline keeps the changes.
 - **What people write is data.** Notes, emails and form messages reach an assistant as text from third parties, never as instructions.
-- **Secrets.** Google tokens are stored encrypted with AES-256-GCM under the install's `TOKENS_ENCRYPTION_KEY`. Lead keys, invitation links and quote links are stored hashed, and never logged.
-- **The database sleeps when nobody needs it.** It bills by the hour it's awake on a serverless host. An anonymous visit doesn't touch it: no session cookie, no auth. A quote's link is signed, so a made-up one is turned away before any query, and a quote's expiry is worked out when it is read, with no job. The hourly cron stops at a cached answer while no mailbox exists anywhere. Connecting or removing one clears that answer at once; it also refreshes daily. OAuth's discovery documents are cached too.
+- **A company's credentials are the company's.** They live in its workspace as connectors, never in the install's environment, and only its owners and admins can change them. A connector is used only in its own workspace, by row-level security rather than by care: one company's mail or mailbox never goes through another's account.
+- **Secrets.** Connector credentials and Google tokens are sealed with AES-256-GCM under the install's `SOLDLYNE_SECRETS_KEY`, shown to nobody once saved, not even in part, and never logged. Lead keys, invitation links and quote links are stored hashed, and never logged.
+- **What a service answers is data.** A check says what came of it in Soldlyne's own words. What Google or Resend wrote back reaches no screen, record or assistant through a connector.
+- **The database sleeps when nobody needs it.** It bills by the hour it's awake on a serverless host. An anonymous visit doesn't touch it: no session cookie, no auth. A quote's link is signed, so a made-up one is turned away before any query, and a quote's expiry is worked out when it is read, with no job. The hourly cron stops at a cached answer while no mailbox with a working Google connector exists anywhere. Connecting or removing either clears that answer at once; it also refreshes daily. OAuth's discovery documents are cached too.
 
 ## 3. How it is built
 
@@ -50,6 +53,15 @@ Isolation is the database's, and forgetting it fails closed.
 - **`test/isolation/`** reads the Prisma schema's models, and fails if a table with a `workspaceId` lacks forced row-level security or its policy, if a model outside the trusted list lacks a `workspaceId`, or if a row in one workspace can be read, updated, deleted or linked from another.
 
 A new table needs its policy written by hand in its migration: Prisma's schema can't declare one. These tests are what remind you.
+
+### Connectors
+
+**Decided 2026-11-05: a company's credentials are connectors in the app, per workspace, not environment variables.** One install hosts many companies, so one Google client or mail key in its environment would make every company's customers see the same sender, and leave a company's access in the hands of whoever runs the install. What stays in the environment is what the install needs before any workspace exists: the database, sign-in (a company's identity provider included), `CRON_SECRET`, the install's own mail, and the one key that seals the rest. The sealing key was called `TOKENS_ENCRYPTION_KEY` until then. Its format is unchanged, so an install with mailboxes already sealed gives `SOLDLYNE_SECRETS_KEY` the old value.
+
+- **`Connection`** has one row per workspace and connector, secured like any other business table. Secret fields are sealed together in `sealedCredentials`; the others are readable in `settings`. `kind` is plain text, so a new connector needs no migration. Reads go through `prisma`: the cron reaches each workspace's connector bound to that workspace, so this added no trusted use.
+- **`lib/connectors/registry.ts`** lists the connectors, each defined in a file of `lib/connectors/kinds`: its fields, how to set it up, how to try it, and what disconnecting stops. The page and the assistant's tools work from that.
+- **Connecting a mailbox.** The OAuth state names the workspace and is signed for the member who asked, and the callback checks both again before that workspace's client takes the code. The address registered at Google is always `BETTER_AUTH_URL`'s.
+- **Assistants** see state, get the page's link, and can check a connector for an owner or an admin. They can't connect or disconnect one: keys don't belong in a conversation, and what's written in records can carry instructions, while what a disconnect costs takes a person to undo.
 
 ## 4. Working with Coldlyne (planned)
 

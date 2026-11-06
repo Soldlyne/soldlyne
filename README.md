@@ -10,13 +10,14 @@ The CRM that takes over once someone answers: companies, people, deals, pipeline
 - **Pipelines.** A board for all deals and one per project, with drag and drop, and alerts for deals stuck in a stage or with no next step.
 - **Reports.** Deals won, lost and open, a stage-to-stage funnel, channels and activity over a period.
 - **Lead capture.** `POST /api/leads` with a key per form creates or updates the person and the company, can open a deal, and records the opt-in when the person gave one.
-- **Mailbox sync.** Gmail and Google Calendar log emails and meetings with people already in Soldlyne, every hour. Read access only.
+- **Mailbox sync.** Gmail and Google Calendar log emails and meetings with people already in Soldlyne, every hour, through the company's own Google client. Read access only.
 - **Partners.** Who referred which deal, and the commission owed.
 - **Quotes.** From a deal to a quote the customer accepts online: lines with a tax rate each and an optional discount, per-rate tax, numbers that never skip, a PDF, and a link they open with no account. Accepting moves the deal to Won. Details are [below](#quotes).
-- **Workspaces.** One per company, with its own records, stages, products, mailboxes and lead keys. One account can belong to several and switch from the sidebar. Owners and admins invite people by address.
+- **Connectors.** Each workspace connects its own Google client and Resend account in the app, sealed. Details are [below](#connectors).
+- **Workspaces.** One per company, with its own records, stages, products, mailboxes, connectors and lead keys. One account can belong to several and switch from the sidebar. Owners and admins invite people by address.
 - **Assistants.** An MCP server at `/api/mcp`, so Claude, ChatGPT or any MCP client can run the pipeline. They connect through OAuth, and one connection covers all the member's workspaces. Everything an assistant does is recorded as done by MCP.
 
-Soldlyne never sends prospecting email. The only mail it sends is its own to its members (confirmation links, forgotten passwords and invitations), and a quote's link to the customer of a deal, when a member sends it.
+Soldlyne never sends prospecting email. The only mail it sends is its own to its members (confirmation links, forgotten passwords and invitations), and a quote's link to the customer of a deal, when a member sends it, from that company's own Resend account.
 
 ## Running it locally
 
@@ -76,21 +77,34 @@ One of these, and `SOLDLYNE_ADMINS` for who may start. Nobody can get an account
 | `OIDC_CLIENT_SECRET` | For a provider | |
 | `OIDC_NAME` | No | The provider's name on the sign-in page. Default: SSO. |
 | `SOLDLYNE_PASSWORD_SIGN_IN` | For passwords | `true` offers addresses and passwords, unless a provider is set. |
-| `RESEND_API_KEY` | For passwords | Soldlyne's own mail. It never carries prospecting. Without it, an invitation or a quote shows its link to copy. |
+| `RESEND_API_KEY` | For passwords | Soldlyne's own mail to its members. It never carries prospecting. Without it, an invitation shows its link to copy. A quote's mail doesn't use it: see [Connectors](#connectors). |
 | `SOLDLYNE_MAIL_FROM` | For passwords | The sender, on a domain verified at Resend. |
-| `GOOGLE_CLIENT_ID` | For mailbox sync | A Google OAuth client with the Gmail and Calendar APIs enabled and `<your address>/api/google/callback` as a redirect address. An Internal consent screen avoids Google's review. |
-| `GOOGLE_CLIENT_SECRET` | For mailbox sync | |
-| `TOKENS_ENCRYPTION_KEY` | For mailbox sync | Encrypts the Google tokens in the database: `openssl rand -base64 32`. Keep it safe: without it, mailboxes have to connect again. |
+| `SOLDLYNE_SECRETS_KEY` | For connectors | Seals what each workspace's connectors and mailboxes hold in the database: `openssl rand -base64 32`. Keep it safe: without it, they all have to connect again. |
 | `CRON_SECRET` | For mailbox sync | The bearer token `/api/cron/sync` requires. Without it, the route refuses every call. |
+
+A company's own accounts have no variable: see [Connectors](#connectors).
 
 ## Workspaces
 
-A workspace is one company on an install. Everything in it stays in it: records, stages, products, custom fields, mailboxes, lead keys. Names, domains and addresses only have to be unique within one.
+A workspace is one company on an install. Everything in it stays in it: records, stages, products, custom fields, mailboxes, connectors, lead keys. Names, domains and addresses only have to be unique within one.
 
 - **Starting one.** Someone in `SOLDLYNE_ADMINS` names their first after signing up, and can add more from the switcher in the sidebar's footer. Someone invited can't start one.
 - **Switching.** The switcher shows the workspace you're in and your others. The browser remembers your choice in a cookie, but membership is read again on every request: a cookie naming a workspace you aren't in falls back to your first.
 - **The team.** In Settings, owners and admins invite by address as admin or member, cancel, remove and change roles. Admins don't touch owners. Nobody removes or demotes the last owner, who can't leave either. Anyone else can leave. Removal ends access at the next request.
 - **Invitations.** A link good for 14 days and for the invited address only, sent by mail, or shown to copy when the install has no mail. It lets that address get an account, on the password path or through the provider. Opening it signed in with another address says so and names nothing.
+
+## Connectors
+
+A company's credentials belong to that company, so they live in its workspace rather than in the install's environment. Owners and admins manage them on the **Connectors** page; other members see whether each is connected. What's typed is tried with the service first, then sealed with `SOLDLYNE_SECRETS_KEY`, and never shown again, not even in part.
+
+- **Google.** The company's own OAuth client, with the Gmail and Calendar APIs enabled. The page gives the redirect address to register. Each member then connects their mailbox from Mailboxes, and its tokens are sealed on its own row. Soldlyne only asks Google for read access. A check tries the client at Google without touching anyone's mail, but Google only looks at the redirect address when a mailbox connects.
+- **Resend.** The company's own API key and sender, so a quote's link reaches its customer from the company's domain. It carries that company's transactional mail, never prospecting. A check reads the account's domains and sends nothing. A sending-only key passes, though whether its domain is verified then only shows at the first quote. With no connector, whoever sends a quote gets its link to copy.
+- **Disconnecting** forgets the credentials, and says first what stops. Mailboxes stop syncing and keep their sealed tokens, so connecting the same client again picks them up; with another client, each has to connect again. What was already logged stays.
+- **Refused credentials.** A connector a service turns down is marked and not used until a check passes or it's connected again, so nothing keeps knocking. When the service simply doesn't answer, nothing changes.
+
+The install's own settings stay in the environment, because it needs them before any workspace exists: the database, sign-in (including a company's identity provider, which guards the install itself), the cron's secret, and its own mail to members.
+
+To add a service, write its definition in a new file of `lib/connectors/kinds` and name it in `lib/connectors/registry.ts`. The table, the page, the checks and the assistants' tools all work from that.
 
 ## Quotes
 
@@ -99,7 +113,7 @@ A quote starts from a deal, with **New quote** on its page, and goes to its cust
 - **Seller details.** In Settings, owners and admins fill in the legal name, address, company number, VAT number and contact email, and what a new quote starts from: currency, tax rate, validity and terms. It is the workspace's own text. Soldlyne doesn't check it, doesn't choose a tax rate, and doesn't say what a quote must contain where you are.
 - **Numbers.** Each workspace counts on its own, 0001 upward, with the year in front if you ask (2026-0042). The number is taken when the quote is created and quotes aren't deleted, so none is skipped or used twice. The count doesn't start again each January: with the year in front, 2026-0042 can be followed by 2027-0043.
 - **Amounts.** Everything is kept in exact integers, in the quote's own currency. Each line's net is rounded to the minor unit; tax is then worked out once per rate, on the sum of that rate's lines. Exactly half a minor unit rounds up.
-- **Sending.** It needs the seller details, at least one line and a customer, and says what's missing. The customer gets a mail with their link, or with no mail set up you get the link to copy. It's shown once, since only its hash is kept; **New link** replaces a lost one and ends the old one. Sending also copies the seller and the customer onto the quote, so later edits don't change it.
+- **Sending.** It needs the seller details, at least one line and a customer, and says what's missing. The customer gets a mail with their link, or with no Resend connector you get the link to copy. It's shown once, since only its hash is kept; **New link** replaces a lost one and ends the old one. Sending also copies the seller and the customer onto the quote, so later edits don't change it.
 - **After sending.** A sent quote can't be edited. **Copy** makes a new draft under the next number. **Mark declined** records a no you got some other way.
 - **The customer.** `/q/<link>` shows the quote and its PDF, with no account. They accept with a typed name and a ticked box, which records the name, the date, the IP address and the browser, or decline with a reason if they like. It works once. Opening the link changes nothing, since mail scanners open links too. The IP address is what the host in front reports: Vercel sets it itself, so check that your proxy does.
 - **The deal.** Accepting moves an open deal to your first Won stage and says so on its timeline. A deal already closed stays where it is. Declining only adds to the timeline: one quote declined isn't the deal lost. The deal's amount isn't changed.
@@ -113,7 +127,7 @@ A hosted edition is an install like any other, with more workspaces on it. Set i
 - Point `BETTER_AUTH_URL` at its public address, and turn on `SOLDLYNE_PASSWORD_SIGN_IN` with mail, since its people won't share one identity provider.
 - Keep `SOLDLYNE_ADMINS` to whoever may open a workspace: anyone else gets in by invitation only. Opening one's own workspace by signing up isn't built, nor are plans, billing or limits per workspace.
 - Leave the database to scale to zero if your host offers it. An anonymous visit doesn't touch it, and the hourly cron doesn't until someone connects a mailbox.
-- Each workspace can connect its own Google mailboxes through the install's one Google OAuth client. The same address can be connected in two workspaces, and is then read for each.
+- Each workspace connects its own Google client and its own Resend account, so no company's credentials are shared with another or left to whoever runs the install. The same mailbox can be connected in two workspaces, and is then read for each. Sign-in stays the install's, so a hosted edition's people can't each bring their own identity provider.
 
 ## Connecting an assistant
 
@@ -123,7 +137,7 @@ Add `<your address>/api/mcp` to Claude, ChatGPT or any MCP client as a remote co
 claude mcp add --transport http soldlyne <your address>/api/mcp
 ```
 
-If you belong to several workspaces, each tool takes a `workspace` argument, an id or an exact name from `list_workspaces`, and a call without it is refused: there is no hidden current workspace. With one workspace there's no such argument. No tool invites, removes or changes members, accepts a quote for a customer, or changes the seller details. `send_quote` writes to a real person, so an assistant is told to use it only once you've said yes, and the customer's link stays out of its conversation. There's no screen yet to see or cancel an assistant's connection: a member's access ends when they leave a workspace or lose their account, and a token lasts an hour unless refreshed.
+If you belong to several workspaces, each tool takes a `workspace` argument, an id or an exact name from `list_workspaces`, and a call without it is refused: there is no hidden current workspace. With one workspace there's no such argument. No tool invites, removes or changes members, accepts a quote for a customer, changes the seller details, or connects or disconnects a service: `list_connectors` shows their state, `connect_service` gives the page where keys are typed, and `check_connection` tries one for an owner or an admin. `send_quote` writes to a real person, so an assistant is told to use it only once you've said yes, and the customer's link stays out of its conversation. There's no screen yet to see or cancel an assistant's connection: a member's access ends when they leave a workspace or lose their account, and a token lasts an hour unless refreshed.
 
 ## License
 
