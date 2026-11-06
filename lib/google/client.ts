@@ -90,13 +90,15 @@ export async function exchangeCode(client: GoogleClient, code: string, origin: s
 /** In Soldlyne's own words, for the connector's card: nothing about one mailbox, and the client is what to fix. */
 export const CLIENT_REFUSED = "Google refused this client's id or secret. Check them, or connect it again with a new secret."
 
+const MAILBOX_REFUSED = "Google refused this mailbox's access: connect it again."
+
 /**
  * Who a refusal is about. A refused client is the workspace's connector to fix, and fixing it brings every
  * mailbox back. Refused tokens are that one mailbox's, which has to connect again.
  */
 async function recordRefusal(mailboxId: string, error: GoogleAuthError) {
   if (error.code === 'invalid_client') return markFailing(GOOGLE_CONNECTOR, CLIENT_REFUSED)
-  if (['invalid_grant', 'unauthorized_client'].includes(error.code)) await prisma.mailbox.update({ where: { id: mailboxId }, data: { authFailedAt: new Date(), lastError: error.message } })
+  if (['invalid_grant', 'unauthorized_client'].includes(error.code)) await prisma.mailbox.update({ where: { id: mailboxId }, data: { authFailedAt: new Date(), lastError: MAILBOX_REFUSED } })
 }
 
 export async function profileFromIdToken(idToken: string): Promise<{ email: string; name?: string }> {
@@ -142,7 +144,7 @@ export class GmailError extends Error {
 async function gmail<T>(mailboxId: string, path: string): Promise<T> {
   const token = await accessToken(mailboxId)
   const response = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/${path}`, { headers: { authorization: `Bearer ${token}` } })
-  if (!response.ok) throw new GmailError(response.status, `Gmail ${path.split('?')[0]}: ${response.status} ${await response.text()}`)
+  if (!response.ok) throw new GmailError(response.status, `Gmail ${path.split('?')[0]}: ${response.status}`)
   return (await response.json()) as T
 }
 
@@ -213,7 +215,7 @@ export async function calendarChanges(mailboxId: string, syncToken: string | nul
     else params.set('timeMin', new Date(Date.now() - 30 * 86_400_000).toISOString())
     if (pageToken) params.set('pageToken', pageToken)
     const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`, { headers: { authorization: `Bearer ${token}` } })
-    if (!response.ok) throw new GmailError(response.status, `Calendar: ${response.status} ${await response.text()}`)
+    if (!response.ok) throw new GmailError(response.status, `Calendar: ${response.status}`)
     const page = (await response.json()) as { items?: CalendarEvent[]; nextPageToken?: string; nextSyncToken?: string }
     events.push(...(page.items ?? []))
     pageToken = page.nextPageToken

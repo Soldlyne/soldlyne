@@ -130,6 +130,9 @@ export async function syncMeeting(mailbox: Mailbox, event: CalendarEvent): Promi
   return 'upserted'
 }
 
+/** What failed, for the logs: a database's message can repeat what a stranger wrote. */
+const nameOf = (error: unknown) => (error instanceof Error ? error.name : 'Unknown error')
+
 /** Calendar step of the cron run, for every mailbox that syncs contacts. */
 async function syncCalendars() {
   const stats = { meetings: 0, calendarErrors: 0 }
@@ -139,7 +142,15 @@ async function syncCalendars() {
     if (!mailbox.scopes.some((s) => s.includes('calendar'))) continue
     try {
       const { events, nextSyncToken } = await calendarChanges(mailbox.id, mailbox.calendarSyncToken)
-      for (const event of events) if ((await syncMeeting(mailbox, event)) === 'upserted') stats.meetings++
+      for (const event of events) {
+        // One event that can't be logged mustn't hold the token back: everything after it would wait for ever.
+        try {
+          if ((await syncMeeting(mailbox, event)) === 'upserted') stats.meetings++
+        } catch (error) {
+          stats.calendarErrors++
+          console.warn('A meeting could not be logged:', event.id, nameOf(error))
+        }
+      }
       await prisma.mailbox.update({ where: { id: mailbox.id }, data: { calendarSyncToken: nextSyncToken, calendarSyncedAt: new Date() } })
     } catch (error) {
       stats.calendarErrors++
@@ -179,11 +190,19 @@ async function syncMailboxEmails(mailbox: Mailbox) {
     throw error
   }
   let logged = 0
+  let unlogged = 0
   for (const added of page.added) {
     const meta = await messageIfStillThere(mailbox.id, added.id)
-    if (meta && (await syncEmail(mailbox, meta))) logged++
+    if (!meta) continue
+    // One message that can't be logged mustn't hold the cursor back: everything after it would wait for ever.
+    try {
+      if (await syncEmail(mailbox, meta)) logged++
+    } catch (error) {
+      unlogged++
+      console.warn('An email could not be logged:', added.id, nameOf(error))
+    }
   }
-  await prisma.mailbox.update({ where: { id: mailbox.id }, data: { historyId: page.historyId, lastError: null } })
+  await prisma.mailbox.update({ where: { id: mailbox.id }, data: { historyId: page.historyId, lastError: unlogged > 0 ? `${unlogged} email${unlogged > 1 ? 's' : ''} couldn't be logged.` : null } })
   return logged
 }
 
@@ -197,7 +216,7 @@ export async function syncEmails() {
     } catch (error) {
       stats.mailboxErrors++
       if (!(error instanceof GoogleAuthError)) {
-        await prisma.mailbox.update({ where: { id: mailbox.id }, data: { lastError: String(error instanceof Error ? error.message : error).slice(0, 500) } })
+        await prisma.mailbox.update({ where: { id: mailbox.id }, data: { lastError: error instanceof GmailError ? error.message : "This mailbox couldn't be read just now." } })
       }
     }
   }

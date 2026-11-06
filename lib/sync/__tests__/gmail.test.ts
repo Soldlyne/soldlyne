@@ -99,6 +99,27 @@ describe('syncEmails', () => {
     expect(after.lastError).toBe('Gmail 500')
   })
 
+  workspace.it('moves past a message that can not be logged, instead of stopping on it for ever', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    await setCursor('30')
+    history = () => ({ added: [{ id: `poison-${tag}`, threadId: 't' }, { id: `after-${tag}`, threadId: 't' }], historyId: '31' })
+    message = (id) => (id.startsWith('poison') ? { ...email(id), internalDate: 'not a date' } : email(id))
+    expect(await syncEmails()).toEqual({ emailsLogged: 1, mailboxErrors: 0 })
+    expect(await cursor()).toBe('31')
+    expect(await prisma.activity.count({ where: { externalId: `after-${tag}`, source: 'GMAIL' } })).toBe(1)
+    expect((await prisma.mailbox.findUniqueOrThrow({ where: { id: mailbox.id } })).lastError).toBe("1 email couldn't be logged.")
+    warn.mockRestore()
+  })
+
+  workspace.it("shows nothing of a database's words when something else fails", async () => {
+    await setCursor('40')
+    history = () => {
+      throw new Error('Invalid `prisma.activity.create()` invocation: a value from a stranger')
+    }
+    expect(await syncEmails()).toEqual({ emailsLogged: 0, mailboxErrors: 1 })
+    expect((await prisma.mailbox.findUniqueOrThrow({ where: { id: mailbox.id } })).lastError).toBe("This mailbox couldn't be read just now.")
+  })
+
   workspace.it('does not read a mailbox with sync turned off', async () => {
     await prisma.mailbox.update({ where: { id: mailbox.id }, data: { syncContacts: false } })
     read.mockClear()

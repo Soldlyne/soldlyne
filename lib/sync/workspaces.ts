@@ -15,12 +15,21 @@ const allWorkspaces = () => trustedPrisma.workspace.findMany({ select: { id: tru
 /** A mailbox is only something to read while its workspace has a Google client to read it with. */
 const hasMailboxToRead = async () => (await isConnected(GOOGLE_CONNECTOR)) && Boolean(await prisma.mailbox.findFirst({ select: { id: true } }))
 
-/** Workspace by workspace: row-level security lets no query see across them, the owner's included. */
+/**
+ * Workspace by workspace: row-level security lets no query see across them, the owner's included. One
+ * that can't be asked mustn't keep the others from being read, and may hold a mailbox itself: not knowing means look.
+ */
 async function findAnyMailbox(): Promise<boolean> {
+  let unknown = false
   for (const { id } of await allWorkspaces()) {
-    if (await runInWorkspace(id, hasMailboxToRead)) return true
+    try {
+      if (await runInWorkspace(id, hasMailboxToRead)) return true
+    } catch (error) {
+      unknown = true
+      console.warn('Could not look for a mailbox in a workspace:', id, error instanceof Error ? error.message : error)
+    }
   }
-  return false
+  return unknown
 }
 
 /**
