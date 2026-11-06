@@ -22,7 +22,7 @@ async function workspaceWithRecords(tag: string) {
     const product = await prisma.product.create({ data: { name: `Product ${tag}`, projectId: project.id } })
     const company = await prisma.company.create({ data: { name: `Company ${tag}`, domain: `${unique}.example` } })
     const deal = await prisma.deal.create({ data: { name: `Deal ${tag}`, productId: product.id, stageId: stage.id, companyId: company.id } })
-    const { key, id: keyId } = await createApiKey(`Key ${tag}`)
+    const { key, id: keyId } = await createApiKey(`Key ${tag}`, null)
     return { id, key, keyId, rows: { stage: stage.id, product: product.id, company: company.id, deal: deal.id } }
   })
 }
@@ -80,7 +80,7 @@ describe("a key of workspace A, with records in A and B", () => {
   it("can't be revoked from B, and revoking it leaves B's key working", async () => {
     await runInWorkspace(b.id, () => revokeApiKey(a.keyId))
     expect((await read(deals, a.key)).data.length).toBeGreaterThan(0)
-    const other = await runInWorkspace(a.id, () => createApiKey('Revoked in A'))
+    const other = await runInWorkspace(a.id, () => createApiKey('Revoked in A', null))
     await runInWorkspace(a.id, () => revokeApiKey(other.id))
     expect((await read(deals, b.key)).data.length).toBeGreaterThan(0)
   })

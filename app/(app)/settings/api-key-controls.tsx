@@ -44,7 +44,7 @@ function KeyRow({ apiKey }: { apiKey: ListedApiKey }) {
         </p>
         <p className="text-xs text-muted-foreground">
           {apiKey.scopes.join(', ')} · {apiKey.lastUsedAt ? `last used ${formatRelative(apiKey.lastUsedAt)}` : 'never used'}
-          {apiKey.revokedAt && ` · revoked ${formatRelative(apiKey.revokedAt)}`}
+          {apiKey.revokedAt ? ` · revoked ${formatRelative(apiKey.revokedAt)}` : !apiKey.createdBy && ' · maker unknown'}
         </p>
       </div>
       {!apiKey.revokedAt && (

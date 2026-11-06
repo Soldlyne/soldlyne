@@ -13,18 +13,18 @@ export const READ_SCOPE = 'read'
 export const REQUESTS_PER_WINDOW = 120
 export const WINDOW_SECONDS = 60
 
-/** A new key for another app, in the current workspace. Only its hash is kept, so this is the one time it is seen. */
-export async function createApiKey(name: string): Promise<{ id: string; name: string; scopes: string[]; key: string }> {
+/** A new key for another app, in the current workspace, and who it ends with. Only its hash is kept, so this is the one time it is seen. */
+export async function createApiKey(name: string, createdBy: string | null): Promise<{ id: string; name: string; scopes: string[]; key: string }> {
   const key = newApiKeyToken()
   const made = await prisma.apiKey.create({
-    data: { name: name.trim().slice(0, LONGEST_KEY_NAME) || 'API key', keyHash: sha256(key), prefix: key.slice(0, PREFIX_LENGTH), scopes: [READ_SCOPE] },
+    data: { name: name.trim().slice(0, LONGEST_KEY_NAME) || 'API key', keyHash: sha256(key), prefix: key.slice(0, PREFIX_LENGTH), scopes: [READ_SCOPE], createdBy },
     select: { id: true, name: true, scopes: true },
   })
   return { ...made, key }
 }
 
 /** The current workspace's keys for its settings page, newest first, without their hashes. */
-export const listApiKeys = () => prisma.apiKey.findMany({ orderBy: { createdAt: 'desc' }, select: { id: true, name: true, prefix: true, scopes: true, lastUsedAt: true, revokedAt: true, createdAt: true } })
+export const listApiKeys = () => prisma.apiKey.findMany({ orderBy: { createdAt: 'desc' }, select: { id: true, name: true, prefix: true, scopes: true, createdBy: true, lastUsedAt: true, revokedAt: true, createdAt: true } })
 
 export type ListedApiKey = Awaited<ReturnType<typeof listApiKeys>>[number]
 

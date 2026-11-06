@@ -46,7 +46,7 @@ function workspaceAwareServer(server: McpServer, { userId, clientId, workspaces 
         const belongsTo = await workspacesOf(userId)
         const chosen = workspaceNamed(belongsTo, workspace)
         if (!chosen) return refusal(whichWorkspace(belongsTo))
-        return runInWorkspace(chosen.id, () => withMcpActor(clientId, async () => handler(args, context), chosen.role))
+        return runInWorkspace(chosen.id, () => withMcpActor(clientId, async () => handler(args, context), chosen.role, userId))
       }
       return (server.registerTool as unknown as (...parts: unknown[]) => unknown)(name, { ...config, inputSchema: acceptingWorkspace(config.inputSchema, several) }, wrapped)
     },

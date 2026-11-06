@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { createBareWorkspace, removeWorkspace } from '@/test/fixtures'
+import { createBareWorkspace, createUser, removeUsers, removeWorkspace } from '@/test/fixtures'
 
 const seat = vi.hoisted(() => ({ workspace: { id: '', name: 'Keys', slug: 'keys', role: 'OWNER' as string }, user: { id: 'u', name: 'U', email: 'u@example.com', emailVerified: true }, workspaces: [] as object[] }))
 vi.mock('@/lib/workspaces/seat', () => ({ requireSeat: async () => seat }))
@@ -11,9 +11,13 @@ const keysHere = () => runInWorkspace(seat.workspace.id, () => prisma.apiKey.fin
 
 beforeAll(async () => {
   seat.workspace.id = (await createBareWorkspace('api-actions')).id
+  seat.user.id = (await createUser(`maker-${Date.now()}@api-actions.example`)).id
 })
 
-afterAll(() => removeWorkspace(seat.workspace.id))
+afterAll(async () => {
+  await removeWorkspace(seat.workspace.id)
+  await removeUsers('@api-actions.example')
+})
 
 describe('managing keys', () => {
   it.each(['OWNER', 'ADMIN'])('is open to an %s, who sees the key once and can end it', async (role) => {

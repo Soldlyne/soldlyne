@@ -34,7 +34,7 @@ export function RoleSelect({ userId, name, role, choices }: { userId: string; na
 export function RemoveMemberButton({ userId, name }: { userId: string; name: string }) {
   const { pending, run } = useRun()
   return (
-    <Button variant="ghost" size="xs" loading={pending} onClick={() => confirm(`Remove ${name} from this workspace?`) && run(() => orThrow(removeFromWorkspace(userId)))}>
+    <Button variant="ghost" size="xs" loading={pending} onClick={() => confirm(`Remove ${name} from this workspace? API keys they made stop working.`) && run(() => orThrow(removeFromWorkspace(userId)))}>
       Remove
     </Button>
   )
@@ -52,7 +52,7 @@ export function CancelInvitationButton({ id }: { id: string }) {
 export function LeaveButton({ workspaceName }: { workspaceName: string }) {
   const { pending, run } = useRun()
   return (
-    <Button variant="outline" size="sm" loading={pending} onClick={() => confirm(`Leave ${workspaceName}? You'd need a new invitation to come back.`) && run(() => leaveWorkspace())}>
+    <Button variant="outline" size="sm" loading={pending} onClick={() => confirm(`Leave ${workspaceName}? You'd need a new invitation to come back, and API keys you made stop working.`) && run(() => leaveWorkspace())}>
       Leave this workspace
     </Button>
   )

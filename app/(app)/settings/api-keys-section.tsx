@@ -11,6 +11,7 @@ export async function ApiKeysSection() {
       <p className="mb-3 text-sm text-muted-foreground">
         Let another app read this workspace&apos;s deals, companies, stages and products, and nothing else: <span className="font-mono text-xs">{publicUrl()}/api/v1</span>. A key is shown once, and read-only. An owner or an admin can also have their assistant make or revoke one.
       </p>
+      <p className="mb-3 text-sm text-muted-foreground">A key stops working when the member who made it leaves the workspace. One marked maker unknown was made before makers were recorded, and stays until someone revokes it.</p>
       <ApiKeyControls keys={keys} />
     </Panel>
   )

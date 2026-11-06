@@ -19,10 +19,11 @@ export async function listKeysAs(role: MemberRole | undefined) {
   return listApiKeys()
 }
 
-/** Returns the key once: only its hash is stored. It can only read, and nothing here asks what it may do. */
-export async function createKeyAs(role: MemberRole | undefined, name: string) {
+/** Returns the key once: only its hash is stored. It can only read, and nothing here asks what it may do. It ends with whoever made it, so a key with nobody behind it isn't made. */
+export async function createKeyAs(role: MemberRole | undefined, madeBy: string | undefined, name: string) {
   requireKeyManager(role)
-  const made = await createApiKey(name)
+  if (!madeBy) throw new Error(NOT_ALLOWED)
+  const made = await createApiKey(name, madeBy)
   revalidatePath(SETTINGS)
   return made
 }

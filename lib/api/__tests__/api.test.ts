@@ -32,7 +32,7 @@ let contact = ''
 
 beforeAll(() =>
   workspace.run(async () => {
-    ;({ key, id: keyId } = await createApiKey('Reader'))
+    ;({ key, id: keyId } = await createApiKey('Reader', null))
     const made = await createStages(randomUUID().slice(0, 6))
     open = made.open
     won = made.won
@@ -63,7 +63,7 @@ describe('a key', () => {
   })
 
   it('ends at its next request once revoked', async () => {
-    const { key: other, id } = await workspace.run(() => createApiKey('Short-lived'))
+    const { key: other, id } = await workspace.run(() => createApiKey('Short-lived', null))
     expect((await get(deals, other)).status).toBe(200)
     await workspace.run(() => revokeApiKey(id))
     const response = await get(deals, other)
@@ -74,7 +74,7 @@ describe('a key', () => {
   })
 
   it("is refused when the install's secret was replaced", async () => {
-    const { key: other } = await workspace.run(() => createApiKey('Old secret'))
+    const { key: other } = await workspace.run(() => createApiKey('Old secret', null))
     const secret = process.env.BETTER_AUTH_SECRET
     process.env.BETTER_AUTH_SECRET = 'another secret entirely'
     try {
@@ -85,7 +85,7 @@ describe('a key', () => {
   })
 
   it('is refused without the read scope', async () => {
-    const { key: other, id } = await workspace.run(() => createApiKey('No scope'))
+    const { key: other, id } = await workspace.run(() => createApiKey('No scope', null))
     await workspace.run(() => prisma.apiKey.update({ where: { id }, data: { scopes: [] } }))
     expect((await get(deals, other)).status).toBe(403)
   })
@@ -93,7 +93,7 @@ describe('a key', () => {
 
 describe('the rate limit', () => {
   it('stops a key at the limit, with when to come back, and leaves other keys alone', async () => {
-    const { key: busy, id } = await workspace.run(() => createApiKey('Busy'))
+    const { key: busy, id } = await workspace.run(() => createApiKey('Busy', null))
     await workspace.run(() => prisma.apiKey.update({ where: { id }, data: { windowCount: REQUESTS_PER_WINDOW, windowStartedAt: new Date() } }))
     const refused = await get(deals, busy)
     expect(refused.status).toBe(429)
@@ -102,7 +102,7 @@ describe('the rate limit', () => {
   })
 
   workspace.it('lets exactly the limit through among requests at once, and opens a new window once this one is over', async () => {
-    const { id } = await createApiKey('Racing')
+    const { id } = await createApiKey('Racing', null)
     await prisma.apiKey.update({ where: { id }, data: { windowCount: REQUESTS_PER_WINDOW - 3, windowStartedAt: new Date() } })
     const answers = await Promise.all(Array.from({ length: 6 }, () => takeRequest(id)))
     expect(answers.filter(Boolean)).toHaveLength(3)

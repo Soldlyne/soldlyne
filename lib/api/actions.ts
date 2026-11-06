@@ -7,8 +7,8 @@ import { createKeyAs, revokeKeyAs } from './key-management'
 
 /** Returns the key once: only its hash is stored. */
 export async function createApiKeyOfWorkspace(name: string): Promise<{ key: string }> {
-  const { workspace } = await requireSeat()
-  const { key } = await createKeyAs(workspace.role, name)
+  const { user, workspace } = await requireSeat()
+  const { key } = await createKeyAs(workspace.role, user.id, name)
   return { key }
 }
 

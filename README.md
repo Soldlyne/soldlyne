@@ -123,7 +123,7 @@ A quote starts from a deal, with **New quote** on its page, and goes to its cust
 
 ## Reading from another app
 
-Another app reads a workspace with a key. Owners and admins make and revoke keys in Settings, under API keys, or have their assistant do it (see [Connecting an assistant](#connecting-an-assistant)). A key is shown once, only its hash is kept, and it only reads. It opens its own workspace and nothing else. Keys are signed with `BETTER_AUTH_SECRET`, so replacing that secret ends them.
+Another app reads a workspace with a key. Owners and admins make and revoke keys in Settings, under API keys, or have their assistant do it (see [Connecting an assistant](#connecting-an-assistant)). A key is shown once, only its hash is kept, and it only reads. It stops working when the member who made it leaves the workspace; keys from before makers were recorded say "maker unknown", and stay until someone revokes them. It opens its own workspace and nothing else. Keys are signed with `BETTER_AUTH_SECRET`, so replacing that secret ends them.
 
 ```bash
 curl -H "Authorization: Bearer $KEY" "$ADDRESS/api/v1/deals?updatedSince=2026-11-05T10:00:00Z&limit=100"

@@ -132,7 +132,7 @@ describe('list_api_keys', () => {
     const stored = await rowOf(here, made.id)
     const answer = await tool(owner, 'list_api_keys')
     const listed = parsed(answer).find(({ id }: { id: string }) => id === made.id)
-    expect(Object.keys(listed).sort()).toEqual(['createdAt', 'id', 'lastUsedAt', 'name', 'prefix', 'revokedAt', 'scopes'])
+    expect(Object.keys(listed).sort()).toEqual(['createdAt', 'createdBy', 'id', 'lastUsedAt', 'name', 'prefix', 'revokedAt', 'scopes'])
     expect(listed).toMatchObject({ name: 'Listed', prefix: stored.prefix, scopes: ['read'], lastUsedAt: null, revokedAt: null })
     expect(answer.content[0].text).not.toContain(made.key)
     expect(answer.content[0].text).not.toContain(stored.keyHash)
@@ -180,7 +180,7 @@ describe('a plain member', () => {
   it.each([['a member', 'MEMBER' as const], ['nobody', undefined]])('is refused by the use case itself, for %s', async (_who, role) => {
     await runInWorkspace(here, async () => {
       await expect(listKeysAs(role)).rejects.toThrow(REFUSED)
-      await expect(createKeyAs(role, 'Not mine')).rejects.toThrow(REFUSED)
+      await expect(createKeyAs(role, owner, 'Not mine')).rejects.toThrow(REFUSED)
       await expect(revokeKeyAs(role, 'anything')).rejects.toThrow(REFUSED)
     })
   })

@@ -23,6 +23,7 @@ model User {
 
   memberships        Member[]
   invitationsSent    Invitation[]
+  apiKeysMade        ApiKey[]
   oauthClients       OauthClient[]
   oauthRefreshTokens OauthRefreshToken[]
   oauthAccessTokens  OauthAccessToken[]
@@ -1102,6 +1103,9 @@ model ApiKey {
   prefix          String
   /// What it may do. Only "read" exists today.
   scopes          String[]  @default(["read"])
+  /// Who made it: it ends with them. Keys from before this was kept have none, and stay until someone revokes them.
+  createdBy       String?
+  maker           User?     @relation(fields: [createdBy], references: [id], onDelete: SetNull)
   lastUsedAt      DateTime?
   revokedAt       DateTime?
   /// Requests in the current minute, counted in the row so every server sees the same count.

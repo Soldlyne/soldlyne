@@ -10,15 +10,18 @@ import { getSession } from './session'
  * the right actor.
  */
 // One per process: each of Next's server bundles loads its own copy of this module.
-const globalForActor = globalThis as unknown as { mcpActor?: AsyncLocalStorage<{ actor: Actor; tokenId: string; role?: MemberRole }> }
+const globalForActor = globalThis as unknown as { mcpActor?: AsyncLocalStorage<{ actor: Actor; tokenId: string; role?: MemberRole; memberId?: string }> }
 const store = (globalForActor.mcpActor ??= new AsyncLocalStorage())
 
-export function withMcpActor<T>(tokenId: string, fn: () => Promise<T>, role?: MemberRole): Promise<T> {
-  return store.run({ actor: 'MCP', tokenId, role }, fn)
+export function withMcpActor<T>(tokenId: string, fn: () => Promise<T>, role?: MemberRole, memberId?: string): Promise<T> {
+  return store.run({ actor: 'MCP', tokenId, role, memberId }, fn)
 }
 
 /** The role, in the workspace of this call, of the member an assistant acts for. */
 export const mcpMemberRole = () => store.getStore()?.role
+
+/** The member an assistant acts for. */
+export const mcpMemberId = () => store.getStore()?.memberId
 
 export function currentActor(): Actor {
   return store.getStore()?.actor ?? 'USER'
