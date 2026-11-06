@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { BrandPage } from '@/components/layout/brand-page'
 import { auth } from '@/lib/auth'
 import { requireUser } from '@/lib/session'
 import { workspacesOf } from '@/lib/workspaces/workspaces'
@@ -26,8 +27,7 @@ export default async function ConsentPage({ searchParams }: PageProps<'/consent'
   const { client_id: clientId } = query
   const client = typeof clientId === 'string' ? await auth().api.getOAuthClientPublic({ query: { client_id: clientId }, headers: await headers() }).catch(() => null) : null
   return (
-    <main className="flex min-h-svh items-center justify-center bg-surface px-4">
-      <div className="w-full max-w-md">
+    <BrandPage width="max-w-md">
         <h1 className="text-xl font-semibold">{client?.client_name ?? 'An assistant'} wants to use Soldlyne</h1>
         {client?.client_uri && <p className="mt-1 font-mono text-xs text-muted-foreground">{client.client_uri}</p>}
         <p className="mt-4 text-sm text-muted-foreground">
@@ -37,7 +37,6 @@ export default async function ConsentPage({ searchParams }: PageProps<'/consent'
         <div className="mt-6">
           <ConsentButtons />
         </div>
-      </div>
-    </main>
+    </BrandPage>
   )
 }

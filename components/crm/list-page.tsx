@@ -5,8 +5,8 @@ import { Search } from 'lucide-react'
 export function ListHeader({ title, count, q, actions, placeholder, search = true }: { title: string; count: number; q?: string; actions?: React.ReactNode; placeholder?: string; search?: boolean }) {
   return (
     <div className="flex flex-wrap items-center gap-3 border-b px-4 py-3 lg:px-6">
-      <h1 className="text-base font-semibold">
-        {title} <span className="num ml-1 font-normal text-muted-foreground">{count}</span>
+      <h1 className="text-lg font-semibold">
+        {title} <span className="num ml-1 text-sm font-normal text-muted-foreground">{count}</span>
       </h1>
       {search && <form className="relative ml-auto w-full max-w-64 sm:w-64">
         <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
@@ -23,7 +23,7 @@ export function ListHeader({ title, count, q, actions, placeholder, search = tru
 }
 
 export function Th({ children, className = '' }: { children?: React.ReactNode; className?: string }) {
-  return <th className={`h-9 border-b px-3 text-left text-xs font-medium whitespace-nowrap text-muted-foreground ${className}`}>{children}</th>
+  return <th className={`h-9 border-b px-3 text-left text-xs font-medium whitespace-nowrap text-muted-foreground bg-surface/60 ${className}`}>{children}</th>
 }
 
 export function Td({ children, className = '' }: { children?: React.ReactNode; className?: string }) {
@@ -41,7 +41,8 @@ export function RowLink({ href, children }: { href: string; children: React.Reac
 export function EmptyState({ title, hint, action }: { title: string; hint: string; action?: React.ReactNode }) {
   return (
     <div className="mx-auto mt-16 max-w-sm px-4 text-center">
-      <p className="font-medium">{title}</p>
+      <span aria-hidden className="rule-double mx-auto mb-5 w-12 text-primary" />
+      <p className="text-lg font-semibold tracking-tight">{title}</p>
       <p className="mt-1 text-sm text-muted-foreground">{hint}</p>
       {action && <div className="mt-4 flex justify-center gap-2">{action}</div>}
     </div>

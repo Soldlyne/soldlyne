@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { connection } from 'next/server'
+import { BrandPage } from '@/components/layout/brand-page'
 import { signInOf } from '@/lib/sign-in'
 import { ResetForm } from './reset-form'
 
@@ -14,8 +15,7 @@ export default async function ResetPasswordPage({ searchParams }: PageProps<'/re
   if (!signInOf(process.env).passwords) notFound()
   const { token } = await searchParams
   return (
-    <main className="flex min-h-svh items-center justify-center bg-surface px-4">
-      <div className="w-full max-w-sm">
+    <BrandPage>
         <h1 className="text-xl font-semibold">A new password</h1>
         {typeof token === 'string' ? (
           <ResetForm token={token} />
@@ -28,7 +28,6 @@ export default async function ResetPasswordPage({ searchParams }: PageProps<'/re
             .
           </p>
         )}
-      </div>
-    </main>
+    </BrandPage>
   )
 }

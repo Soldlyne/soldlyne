@@ -4,17 +4,17 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Design tokens: true neutral grays, ink primary buttons,
- * one indigo accent used sparingly (focus rings, links, positive marks).
- * Components use the semantic utilities (bg-primary, text-muted-foreground,
- * text-success...), never raw palette classes.
+ * Design tokens: the closing rule (docs/design-system.md). A ledger and a signed
+ * quote, flat ink on paper: bordeaux for actions, paper neutrals with a rose
+ * undertone, no gradients. Components use the semantic utilities (bg-primary,
+ * text-muted-foreground, text-success...), never raw palette classes.
  */
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+  --font-sans: var(--font-brand-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-brand-mono), ui-monospace, SFMono-Regular, monospace;
   --color-surface: var(--surface);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -60,7 +60,7 @@
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
 
-  /* Brand scale (indigo, hue 265). */
+  /* Brand scale (bordeaux, hue 10). */
   --color-brand-50: var(--brand-50);
   --color-brand-100: var(--brand-100);
   --color-brand-200: var(--brand-200);
@@ -73,7 +73,7 @@
   --color-brand-900: var(--brand-900);
   --color-brand-950: var(--brand-950);
 
-  /* Radius scale derived from --radius (0.5rem), as on the website. */
+  /* Radius scale derived from --radius (0.5rem). */
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -85,135 +85,131 @@
 
 :root {
   /* Palettes */
-  --brand-50: oklch(0.975 0.015 265);
-  --brand-100: oklch(0.945 0.035 265);
-  --brand-200: oklch(0.89 0.065 265);
-  --brand-300: oklch(0.81 0.1 265);
-  --brand-400: oklch(0.73 0.125 265);
-  --brand-500: oklch(0.63 0.125 265);
-  --brand-600: oklch(0.53 0.11 265);
-  --brand-700: oklch(0.45 0.092 265);
-  --brand-800: oklch(0.38 0.075 265);
-  --brand-900: oklch(0.31 0.06 265);
-  --brand-950: oklch(0.22 0.042 265);
+  --brand-50: oklch(0.975 0.012 12);
+  --brand-100: oklch(0.945 0.026 12);
+  --brand-200: oklch(0.89 0.052 10);
+  --brand-300: oklch(0.81 0.088 8);
+  --brand-400: oklch(0.71 0.128 8);
+  --brand-500: oklch(0.585 0.16 10);
+  --brand-600: oklch(0.47 0.152 10);
+  --brand-700: oklch(0.375 0.122 10);
+  --brand-800: oklch(0.32 0.1 10);
+  --brand-900: oklch(0.265 0.078 10);
+  --brand-950: oklch(0.19 0.05 10);
 
-  --base-50: oklch(0.985 0 0);
-  --base-100: oklch(0.967 0 0);
-  --base-200: oklch(0.922 0 0);
-  --base-300: oklch(0.87 0 0);
-  --base-400: oklch(0.708 0 0);
-  --base-500: oklch(0.556 0 0);
-  --base-600: oklch(0.47 0 0);
-  --base-700: oklch(0.371 0 0);
-  --base-800: oklch(0.269 0 0);
-  --base-900: oklch(0.205 0 0);
-  --base-950: oklch(0.145 0 0);
+  --base-50: oklch(0.985 0.004 25);
+  --base-100: oklch(0.966 0.006 25);
+  --base-200: oklch(0.925 0.008 22);
+  --base-300: oklch(0.87 0.01 20);
+  --base-400: oklch(0.71 0.014 18);
+  --base-500: oklch(0.56 0.016 15);
+  --base-600: oklch(0.46 0.016 14);
+  --base-700: oklch(0.365 0.015 12);
+  --base-800: oklch(0.27 0.014 10);
+  --base-900: oklch(0.205 0.012 10);
+  --base-950: oklch(0.15 0.012 10);
 
   --radius: 0.5rem;
-  /* Tabular lining figures everywhere: amounts align in every column. */
-  --font-features: "tnum", "lnum";
+  /* Figures are set in the mono through .num: this face's tabular comma sits apart from its digits. */
+  --font-features: "kern", "liga";
 
   /* Semantic tokens: light */
-  --background: oklch(1 0 0);
+  --background: var(--base-50);
   --foreground: var(--base-950);
-  --surface: var(--base-50);
+  --surface: var(--base-100);
   --card: oklch(1 0 0);
   --card-foreground: var(--base-950);
   --popover: oklch(1 0 0);
   --popover-foreground: var(--base-950);
-  --primary: var(--base-950);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: var(--base-100);
+  --primary: var(--brand-700);
+  --primary-foreground: oklch(0.99 0.004 25);
+  --secondary: var(--base-200);
   --secondary-foreground: var(--base-900);
   --muted: var(--base-100);
   --muted-foreground: var(--base-600);
-  --accent: var(--base-100);
-  --accent-foreground: var(--base-900);
-  --link: var(--brand-700);
+  --accent: var(--brand-100);
+  --accent-foreground: var(--brand-800);
+  --link: var(--brand-600);
   --highlight: var(--brand-600);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.99 0 0);
-  --success: var(--brand-600);
-  --warning: oklch(0.555 0.163 48.998);
-  --info: oklch(0.5 0.134 242.749);
+  --destructive: oklch(0.565 0.205 30);
+  --destructive-foreground: oklch(0.99 0.004 25);
+  --success: oklch(0.47 0.095 155);
+  --warning: oklch(0.53 0.115 70);
+  --info: oklch(0.47 0.075 245);
   --border: var(--base-200);
   --input: var(--base-300);
   --ring: var(--brand-500);
-  --chart-1: var(--brand-600);
+  --chart-1: var(--brand-700);
   --chart-2: var(--base-400);
-  --chart-3: var(--brand-300);
+  --chart-3: var(--brand-400);
   --chart-4: var(--base-300);
   --chart-5: var(--base-700);
-  /*
-   * Chart series by meaning: every chart reads these. The user's colours
-   * (Apparence settings) arrive as --chart-<series>-light and -dark, inline
-   * on <html> from the root layout (lib/appearance/palette.ts); without them
-   * each series keeps the Sobre default below.
-   */
-  --chart-revenue: var(--chart-revenue-light, var(--chart-1));
+  /* Chart series by meaning: every chart reads these. */
+  --chart-revenue: var(--chart-1);
   /* base-500: base-400 (--chart-2) is under 3:1 on the white card */
-  --chart-expenses: var(--chart-expenses-light, var(--base-500));
-  --chart-treasury: var(--chart-treasury-light, var(--chart-1));
-  --chart-breakdown: var(--chart-breakdown-light, var(--chart-1));
-  --chart-debit: var(--chart-debit-light, var(--chart-1));
-  --chart-credit: var(--chart-credit-light, var(--base-500));
-  --chart-balance: var(--chart-balance-light, var(--foreground));
-  --sidebar: var(--base-50);
-  --sidebar-foreground: var(--base-950);
-  --sidebar-primary: var(--primary);
-  --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: var(--base-100);
-  --sidebar-accent-foreground: var(--base-900);
-  --sidebar-border: var(--border);
-  --sidebar-ring: var(--ring);
+  --chart-expenses: var(--base-500);
+  --chart-treasury: var(--chart-1);
+  --chart-breakdown: var(--chart-1);
+  --chart-debit: var(--chart-1);
+  --chart-credit: var(--base-500);
+  --chart-balance: var(--foreground);
+  /* The sidebar is the one dark surface of a light page: the wine of the mark. */
+  --sidebar: oklch(0.235 0.062 10);
+  --sidebar-foreground: oklch(0.95 0.012 15);
+  --sidebar-primary: var(--base-50);
+  --sidebar-primary-foreground: var(--brand-800);
+  --sidebar-accent: oklch(1 0 0 / 11%);
+  --sidebar-accent-foreground: oklch(0.99 0.004 25);
+  --sidebar-border: oklch(1 0 0 / 11%);
+  --sidebar-ring: var(--brand-300);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.97 0 0);
-  --surface: oklch(0.17 0 0);
-  --card: oklch(0.175 0 0);
-  --card-foreground: oklch(0.97 0 0);
-  --popover: oklch(0.19 0 0);
-  --popover-foreground: oklch(0.97 0 0);
-  --primary: oklch(0.97 0 0);
-  --primary-foreground: oklch(0.16 0 0);
-  --secondary: var(--base-800);
-  --secondary-foreground: oklch(0.97 0 0);
-  --muted: oklch(0.22 0 0);
+  --background: oklch(0.155 0.012 10);
+  --foreground: var(--base-50);
+  --surface: oklch(0.18 0.013 10);
+  --card: oklch(0.195 0.014 10);
+  --card-foreground: var(--base-50);
+  --popover: oklch(0.215 0.015 10);
+  --popover-foreground: var(--base-50);
+  --primary: var(--brand-300);
+  --primary-foreground: var(--brand-950);
+  --secondary: oklch(0.27 0.015 10);
+  --secondary-foreground: var(--base-50);
+  --muted: oklch(0.245 0.015 10);
   --muted-foreground: var(--base-400);
-  --accent: oklch(0.24 0 0);
-  --accent-foreground: oklch(0.97 0 0);
+  --accent: oklch(0.28 0.04 10);
+  --accent-foreground: var(--base-50);
   --link: var(--brand-300);
-  --highlight: var(--brand-400);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.16 0 0);
-  --success: var(--brand-400);
-  --warning: oklch(0.828 0.189 84.429);
-  --info: oklch(0.746 0.16 232.661);
+  --highlight: var(--brand-300);
+  --destructive: oklch(0.72 0.16 30);
+  --destructive-foreground: var(--base-950);
+  --success: oklch(0.76 0.12 155);
+  --warning: oklch(0.8 0.13 80);
+  --info: oklch(0.76 0.08 240);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: var(--brand-400);
-  --chart-1: var(--brand-400);
+  --chart-1: var(--brand-300);
   --chart-2: var(--base-500);
-  --chart-3: var(--brand-700);
+  --chart-3: var(--brand-600);
   --chart-4: var(--base-700);
   --chart-5: var(--base-300);
-  --chart-revenue: var(--chart-revenue-dark, var(--chart-1));
-  --chart-expenses: var(--chart-expenses-dark, var(--chart-2));
-  --chart-treasury: var(--chart-treasury-dark, var(--chart-1));
-  --chart-breakdown: var(--chart-breakdown-dark, var(--chart-1));
-  --chart-debit: var(--chart-debit-dark, var(--chart-1));
-  --chart-credit: var(--chart-credit-dark, var(--chart-2));
-  --chart-balance: var(--chart-balance-dark, var(--foreground));
-  --sidebar: oklch(0.165 0 0);
-  --sidebar-foreground: oklch(0.97 0 0);
-  --sidebar-primary: var(--primary);
-  --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: oklch(0.23 0 0);
-  --sidebar-accent-foreground: oklch(0.97 0 0);
-  --sidebar-border: var(--border);
-  --sidebar-ring: var(--ring);
+  --chart-revenue: var(--chart-1);
+  --chart-expenses: var(--chart-2);
+  --chart-treasury: var(--chart-1);
+  --chart-breakdown: var(--chart-1);
+  --chart-debit: var(--chart-1);
+  --chart-credit: var(--chart-2);
+  --chart-balance: var(--foreground);
+  --sidebar: oklch(0.185 0.03 10);
+  --sidebar-foreground: oklch(0.95 0.012 15);
+  --sidebar-primary: var(--brand-300);
+  --sidebar-primary-foreground: var(--brand-950);
+  --sidebar-accent: oklch(1 0 0 / 9%);
+  --sidebar-accent-foreground: oklch(0.99 0.004 25);
+  --sidebar-border: oklch(1 0 0 / 9%);
+  --sidebar-ring: var(--brand-300);
 }
 
 @layer base {
@@ -241,10 +237,19 @@
   }
 }
 
-/* Tabular, lining figures for amounts (also on by default via --font-features). */
+/* Figures: the ledger's mono, so amounts line up in every column. */
 @utility num {
-  font-variant-numeric: tabular-nums lining-nums;
-  font-feature-settings: "tnum", "lnum";
+  font-family: var(--font-mono);
+  font-size: 0.94em;
+  letter-spacing: -0.02em;
+  font-variant-numeric: lining-nums;
+}
+
+/* The closing rule: two hairlines, what a ledger draws under a final figure. */
+@utility rule-double {
+  display: block;
+  height: 4px;
+  border-block: 1px solid currentColor;
 }
 
 /* Respect prefers-reduced-motion (WCAG 2.3.3). */
@@ -260,7 +265,7 @@
 }
 
 /*
- * Phones and installed app (docs/design-system.md, "Mobile").
+ * Phones and installed app.
  * Unlayered on purpose: these rules win over the size utilities of the
  * components (h-8, size-8, text-sm) on the devices they target only.
  */

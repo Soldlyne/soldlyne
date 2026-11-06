@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
+import { BrandPage } from '@/components/layout/brand-page'
 import { SignOutButton } from '@/components/layout/sign-out-button'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,8 +19,7 @@ export default async function WelcomePage({ searchParams }: PageProps<'/welcome'
   const mayStart = mayStartWorkspace(user, process.env)
   if (hasOne && !(another && mayStart)) redirect(safeNext(next))
   return (
-    <main className="flex min-h-svh items-center justify-center bg-surface px-4">
-      <div className="w-full max-w-sm">
+    <BrandPage>
         <h1 className="text-xl font-semibold">{mayStart ? (hasOne ? 'A new workspace' : 'Your first workspace') : 'You have no workspace yet'}</h1>
         {mayStart ? (
           <>
@@ -40,7 +40,6 @@ export default async function WelcomePage({ searchParams }: PageProps<'/welcome'
             </div>
           </>
         )}
-      </div>
-    </main>
+    </BrandPage>
   )
 }

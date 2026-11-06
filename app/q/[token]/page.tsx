@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { BrandPage } from '@/components/layout/brand-page'
 import { QuoteDocumentView } from '@/components/quotes/quote-document'
 import { Button } from '@/components/ui/button'
 import { LINK_UNKNOWN, seeQuoteAtLink } from '@/lib/quotes/answer'
@@ -24,12 +25,10 @@ export default async function CustomerQuotePage({ params }: PageProps<'/q/[token
   const seen = await seeQuoteAtLink(token)
   if (!seen.found) {
     return (
-      <main className="flex min-h-svh items-center justify-center bg-surface px-4">
-        <div className="w-full max-w-sm">
-          <h1 className="text-xl font-semibold">This link doesn&apos;t open a quote</h1>
-          <p className="mt-2 text-sm text-muted-foreground">{LINK_UNKNOWN}</p>
-        </div>
-      </main>
+      <BrandPage>
+        <h1 className="text-xl font-semibold">This link doesn&apos;t open a quote</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{LINK_UNKNOWN}</p>
+      </BrandPage>
     )
   }
   const { document } = seen

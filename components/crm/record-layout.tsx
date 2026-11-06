@@ -70,7 +70,8 @@ export function Panel({ title, action, children }: { title: string; action?: Rea
   )
 }
 
-const PALETTE = ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6']
+/** Printer's inks, dark enough for white initials: a record's colour says which it is, and nothing louder. */
+const PALETTE = ['#731b32', '#345f82', '#246a43', '#7a5a12', '#5b3a6e', '#1f5f5f', '#8a3f24', '#463b3c']
 
 export function Monogram({ label, square = false, size = 'md' }: { label: string; square?: boolean; size?: 'sm' | 'md' }) {
   const initials = label

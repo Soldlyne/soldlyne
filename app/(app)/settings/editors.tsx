@@ -106,7 +106,7 @@ export function ProductsEditor({ products, projects }: { products: (Product & { 
         className="flex items-center gap-2 px-3 py-2"
         onSubmit={(event) => {
           event.preventDefault()
-          if (name.trim()) run(() => saveProduct({ name, color: '#6366f1', projectId: projectId || null }), () => setName(''))
+          if (name.trim()) run(() => saveProduct({ name, color: '#731b32', projectId: projectId || null }), () => setName(''))
         }}
       >
         <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="Add a product" className="h-8 flex-1" />

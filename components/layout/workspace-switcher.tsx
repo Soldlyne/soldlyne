@@ -7,6 +7,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar'
 import { switchWorkspace } from '@/lib/workspaces/actions'
 import { signOut } from './sign-out-button'
+import { ThemeChoice } from './theme-choice'
 
 export type SwitchableWorkspace = { id: string; name: string }
 
@@ -19,7 +20,7 @@ export function WorkspaceSwitcher({ current, others, mayStart }: { current: Swit
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton tooltip={current.name} aria-label={`Workspace ${current.name}: open the menu`} disabled={switching}>
-              <span aria-hidden className="flex size-4 shrink-0 items-center justify-center rounded bg-muted text-[10px] font-semibold uppercase">
+              <span aria-hidden className="flex size-4 shrink-0 items-center justify-center rounded bg-sidebar-accent text-[10px] font-semibold uppercase">
                 {current.name.slice(0, 1)}
               </span>
               <span className="truncate font-medium">{current.name}</span>
@@ -40,6 +41,8 @@ export function WorkspaceSwitcher({ current, others, mayStart }: { current: Swit
               </DropdownMenuItem>
             )}
             {(others.length > 0 || mayStart) && <DropdownMenuSeparator />}
+            <ThemeChoice />
+            <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => signOut()}>
               <LogOut aria-hidden /> Sign out
             </DropdownMenuItem>

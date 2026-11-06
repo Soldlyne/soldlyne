@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { BrandPage } from '@/components/layout/brand-page'
 import { SignOutButton } from '@/components/layout/sign-out-button'
 import { Button } from '@/components/ui/button'
 import { getSession } from '@/lib/session'
@@ -12,12 +13,10 @@ export const metadata: Metadata = { title: 'Join a workspace', referrer: 'no-ref
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <main className="flex min-h-svh items-center justify-center bg-surface px-4">
-      <div className="w-full max-w-sm">
-        <h1 className="text-xl font-semibold">{title}</h1>
-        {children}
-      </div>
-    </main>
+    <BrandPage>
+      <h1 className="text-xl font-semibold">{title}</h1>
+      {children}
+    </BrandPage>
   )
 }
 
