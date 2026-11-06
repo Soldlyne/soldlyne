@@ -24,6 +24,14 @@ export const tokenIssuer = () => `${publicUrl()}/api/auth`
 const OAUTH_SCOPES = ['openid', 'profile', 'email', 'offline_access']
 
 /**
+ * How long, in seconds, a refresh token just replaced still gets the same answer. An assistant can lose
+ * that answer, when its token store fails a write, and present the old token again. With no grace that
+ * reads as a stolen token: the connection's tokens are all deleted and the member has to approve it
+ * again. Any later than this, it still does.
+ */
+const REFRESH_TOKEN_GRACE = 60
+
+/**
  * Members sign in with the company's identity provider when the install has one, otherwise with a
  * password if it allows them. Either way, only the addresses in SOLDLYNE_ADMINS and those with an
  * invitation still good may get an account. Soldlyne is also an OAuth server for assistants: Claude,
@@ -90,6 +98,7 @@ export function createAuth(settings: SignInSettings) {
         resources: [{ identifier: mcpResource(), name: 'Soldlyne', allowedScopes: OAUTH_SCOPES }],
         clientRegistrationDefaultResources: [mcpResource()],
         clientRegistrationDefaultScopes: OAUTH_SCOPES,
+        refreshTokenReuseInterval: REFRESH_TOKEN_GRACE,
         allowDynamicClientRegistration: true,
         allowUnauthenticatedClientRegistration: true,
         clientRegistrationDefaultApplicationType: 'infer',
