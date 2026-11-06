@@ -7,7 +7,7 @@ import { QuoteDocumentView } from '@/components/quotes/quote-document'
 import { QuoteStateBadge } from '@/components/quotes/quote-state-badge'
 import { listProducts } from '@/lib/crm/queries'
 import { personName } from '@/lib/crm/format'
-import { canSendOwnMail } from '@/lib/mail'
+import { canMailCustomers } from '@/lib/connectors/customer-mail'
 import { prisma } from '@/lib/prisma'
 import { PERCENT_DIGITS, shortDecimalText } from '@/lib/quotes/amounts'
 import { quoteDocument, type QuoteDocument } from '@/lib/quotes/document'
@@ -75,18 +75,18 @@ async function DraftEditor({ quote, defaultTaxRate }: { quote: FullQuote; defaul
   )
 }
 
-function recipientOf({ customer }: QuoteDocument): string | null {
-  if (!customer.contactEmail || !canSendOwnMail(process.env)) return null
+function recipientOf({ customer }: QuoteDocument, canMail: boolean): string | null {
+  if (!customer.contactEmail || !canMail) return null
   return customer.contactName ? `${customer.contactName} (${customer.contactEmail})` : customer.contactEmail
 }
 
 export default async function QuotePage({ params }: PageProps<'/quotes/[id]'>) {
   const { id } = await params
-  const [quote, seller] = await Promise.all([readQuote(id), sellerDetailsOfWorkspace()])
+  const [quote, seller, canMail] = await Promise.all([readQuote(id), sellerDetailsOfWorkspace(), canMailCustomers()])
   if (!quote) notFound()
   const document = quoteDocument(quote, seller)
   const draft = quote.status === 'DRAFT'
-  const missing = draft ? missingToSend({ seller: document.seller, customer: document.customer, lineCount: quote.lines.length, validUntil: quote.validUntil }, { canMail: canSendOwnMail(process.env) }) : []
+  const missing = draft ? missingToSend({ seller: document.seller, customer: document.customer, lineCount: quote.lines.length, validUntil: quote.validUntil }, { canMail }) : []
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6 p-4 lg:p-8">
       <nav className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -107,7 +107,7 @@ export default async function QuotePage({ params }: PageProps<'/quotes/[id]'>) {
           <h1 className="text-xl font-semibold">Quote {quote.reference}</h1>
           <QuoteStateBadge state={document.state} />
         </div>
-        <QuoteToolbar id={id} reference={quote.reference} state={document.state} recipient={recipientOf(document)} missing={missing} />
+        <QuoteToolbar id={id} reference={quote.reference} state={document.state} recipient={recipientOf(document, canMail)} missing={missing} />
         {draft ? (
           <DraftEditor quote={quote} defaultTaxRate={seller?.defaultTaxRateMilliPercent ?? 0} />
         ) : (

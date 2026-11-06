@@ -4,7 +4,7 @@ import type { Prisma } from '@prisma/client'
 import { currentActor, requireActor } from '@/lib/actor'
 import { formatMinor } from './amounts'
 import { sha256 } from '@/lib/hash'
-import { canSendOwnMail, sendOwnMail } from '@/lib/mail'
+import { canMailCustomers, mailCustomer } from '@/lib/connectors/customer-mail'
 import { prisma } from '@/lib/prisma'
 import { publicUrl } from '@/lib/public-url'
 import { recordQuoteEvent } from './events'
@@ -28,13 +28,10 @@ export function quoteMail({ reference, currency, totalMinor, validUntil }: Senda
 
 export type SentQuote = { id: string; reference: string; mailedTo: string | null; link: string | null }
 
-/**
- * Whether the mail left. A failing provider mustn't undo a send already recorded: the member then
- * gets the link to pass on. What the provider said isn't kept or shown, since the mail holds the link.
- */
+/** Whether the mail left, from the company's own Resend account. With none, the member gets the link to pass on. */
 async function mailLink(row: Sendable, seller: SellerCopy, customer: CustomerCopy, url: string): Promise<boolean> {
-  if (!customer.contactEmail || !canSendOwnMail(process.env)) return false
-  return sendOwnMail(process.env, { to: customer.contactEmail, replyTo: seller.contactEmail, ...quoteMail(row, seller, customer, url) }).catch(() => false)
+  if (!customer.contactEmail) return false
+  return mailCustomer({ to: customer.contactEmail, replyTo: seller.contactEmail, ...quoteMail(row, seller, customer, url) })
 }
 
 type Delivered = Sendable & { id: string; dealId: string | null; companyId: string | null; contactId: string | null }
@@ -53,12 +50,13 @@ async function deliver(event: string, row: Delivered, seller: SellerCopy, custom
 export async function sendQuote(id: string): Promise<SentQuote> {
   await requireActor()
   const token = newQuoteToken()
+  const canMail = await canMailCustomers()
   const { row, seller, customer } = await prisma.$transaction(async (tx) => {
     if ((await lockedStatus(tx, id)) !== 'DRAFT') throw new QuoteRefusal('This quote has already been sent.')
     const quote = await tx.quote.findUniqueOrThrow({ where: { id }, include: quoteInclude })
     const sellerCopy = sellerCopyOf(await tx.sellerDetails.findFirst())
     const customerCopy = customerCopyOf(quote)
-    const missing = missingToSend({ seller: sellerCopy, customer: customerCopy, lineCount: quote.lines.length, validUntil: quote.validUntil }, { canMail: canSendOwnMail(process.env) })
+    const missing = missingToSend({ seller: sellerCopy, customer: customerCopy, lineCount: quote.lines.length, validUntil: quote.validUntil }, { canMail })
     if (missing.length > 0) throw new QuoteRefusal(`It can't be sent yet. ${missing.join(' ')}`)
     const data: Prisma.QuoteUpdateInput = { status: 'SENT', sentAt: new Date(), tokenHash: sha256(token), sellerCopy: asStoredCopy(sellerCopy), customerCopy: asStoredCopy(customerCopy) }
     return { row: await tx.quote.update({ where: { id }, data }), seller: sellerCopy, customer: customerCopy }

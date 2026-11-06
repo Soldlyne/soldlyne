@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { requireActor } from '@/lib/actor'
-import { mailboxesChanged } from './workspaces'
+import { mailboxesChanged } from './mailboxes-changed'
 
 const mailboxFields = z.object({
   displayName: z.string().trim().min(1).optional(),

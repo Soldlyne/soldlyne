@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { afterAll, beforeAll, it } from 'vitest'
 import { prisma, runInWorkspace } from '@/lib/prisma'
+import { sealFields, type Fields } from '@/lib/secrets'
 import { trustedPrisma } from '@/lib/trusted-prisma'
 
 /** A bare workspace, with none of a new one's defaults, so a test's rows are the only ones in it. */
@@ -34,3 +35,9 @@ export async function createStages(tag: string) {
 export const createUser = (email: string, name = 'Camille') => trustedPrisma.user.create({ data: { id: randomUUID(), email, name, emailVerified: true } })
 
 export const removeUsers = (emailEnding: string) => trustedPrisma.user.deleteMany({ where: { email: { endsWith: emailEnding } } })
+
+/** A connector as saving one leaves it, with no service asked. In the current workspace. */
+export const connectStandIn = (kind: string, secrets: Fields, settings: Fields = {}) => prisma.connection.create({ data: { kind, sealedCredentials: sealFields(secrets), settings, connectedBy: 'owner@acme.example' } })
+
+/** This workspace's own Resend account, as far as a test can tell. In the current workspace. */
+export const connectMailStandIn = (apiKey = 'workspace-key', sender = 'Quotes <quotes@acme.example>') => connectStandIn('resend', { apiKey }, { sender })

@@ -315,6 +315,7 @@ model Workspace {
   quoteCounter         QuoteCounter?
   quotes               Quote[]
   quoteLines           QuoteLine[]
+  connections          Connection[]
 }
 
 enum MemberRole {
@@ -858,7 +859,7 @@ model Mailbox {
   email             String
   /// Name of the account, shown on the Mailboxes page.
   displayName       String
-  /// AES-256-GCM encrypted (lib/google/crypto.ts).
+  /// Sealed with AES-256-GCM (lib/secrets.ts).
   refreshToken      String
   accessToken       String?
   tokenExpiresAt    DateTime?
@@ -1057,4 +1058,33 @@ model QuoteLine {
   @@index([quoteId, position])
   @@index([productId])
   @@index([workspaceId])
+}
+
+enum ConnectionStatus {
+  CONNECTED
+  /// Refused by its service: nothing uses it until a check passes or it is connected again.
+  FAILING
+}
+
+/// A workspace's account at an outside service: one per connector of lib/connectors/registry.ts.
+model Connection {
+  id                String           @id @default(cuid())
+  workspaceId       String           @default(dbgenerated("current_setting('app.workspace_id'::text)"))
+  workspace         Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  /// Which connector. Text rather than an enum, so a new connector needs no migration.
+  kind              String
+  /// Its secret fields, sealed with AES-256-GCM (lib/secrets.ts). Never leaves the server.
+  sealedCredentials String
+  /// Its other fields, readable for the screens.
+  settings          Json             @default("{}")
+  status            ConnectionStatus @default(CONNECTED)
+  /// Why it failed, in Soldlyne's own words: what a service answers can carry anything, so it isn't kept.
+  lastError         String?
+  checkedAt         DateTime?
+  /// The address of the member who connected it.
+  connectedBy       String
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@unique([workspaceId, kind])
 }

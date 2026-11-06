@@ -1,7 +1,7 @@
 import 'server-only'
 import type { Mailbox } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
-import { calendarChanges, currentHistoryId, GmailError, GoogleAuthError, messageMeta, messagesSince, type CalendarEvent, type MessageMeta } from '@/lib/google/client'
+import { calendarChanges, currentHistoryId, GmailError, GoogleAuthError, googleClient, messageMeta, messagesSince, type CalendarEvent, type MessageMeta } from '@/lib/google/client'
 
 /**
  * Logs Gmail emails and Calendar meetings with known contacts on their
@@ -204,7 +204,8 @@ export async function syncEmails() {
   return stats
 }
 
-/** The cron run: Gmail, then Calendar. */
+/** The cron run: Gmail, then Calendar. A workspace with no working client just waits: no mailbox of its is at fault. */
 export async function runSync() {
+  if (!(await googleClient())) return { emailsLogged: 0, mailboxErrors: 0, meetings: 0, calendarErrors: 0 }
   return { ...(await syncEmails()), ...(await syncCalendars()) }
 }

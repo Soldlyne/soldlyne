@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { revalidateTag } from 'next/cache'
-import { createBareWorkspace, removeWorkspace } from '@/test/fixtures'
+import { connectStandIn, createBareWorkspace, removeWorkspace } from '@/test/fixtures'
 
 const synced: string[] = []
 vi.mock('../contacts', async () => {
@@ -16,7 +16,8 @@ vi.mock('../contacts', async () => {
 })
 
 const { prisma, runInWorkspace } = await import('@/lib/prisma')
-const { anyMailboxConnected, mailboxesChanged, syncEveryWorkspace } = await import('../workspaces')
+const { anyMailboxConnected, syncEveryWorkspace } = await import('../workspaces')
+const { mailboxesChanged } = await import('../mailboxes-changed')
 
 let failing = ''
 let first = ''
@@ -43,10 +44,30 @@ describe('the cron across workspaces', () => {
     warn.mockRestore()
   })
 
-  it('finds a mailbox in any workspace, whichever comes first', async () => {
+  it('finds a mailbox in any workspace, whichever comes first, once it has a client to read it with', async () => {
     const created = await runInWorkspace(second, () => prisma.mailbox.create({ data: { email: 'me@cron.example', displayName: 'Me', refreshToken: 'x' } }))
+    const connection = await runInWorkspace(second, () => connectStandIn('google', { clientId: 'id', clientSecret: 'secret' }))
     expect(await anyMailboxConnected()).toBe(true)
+    await runInWorkspace(second, () => prisma.connection.delete({ where: { id: connection.id } }))
     await runInWorkspace(second, () => prisma.mailbox.delete({ where: { id: created.id } }))
+  })
+
+  it('has nothing to read when a mailbox has no client, or a client no mailbox, even in two different workspaces', async () => {
+    const mailbox = await runInWorkspace(first, () => prisma.mailbox.create({ data: { email: 'me@cron.example', displayName: 'Me', refreshToken: 'x' } }))
+    expect(await anyMailboxConnected()).toBe(false)
+    const connection = await runInWorkspace(second, () => connectStandIn('google', { clientId: 'id', clientSecret: 'secret' }))
+    expect(await anyMailboxConnected()).toBe(false)
+    await runInWorkspace(second, () => prisma.connection.delete({ where: { id: connection.id } }))
+    await runInWorkspace(first, () => prisma.mailbox.delete({ where: { id: mailbox.id } }))
+  })
+
+  it('has nothing to read while Google refuses the client', async () => {
+    const mailbox = await runInWorkspace(first, () => prisma.mailbox.create({ data: { email: 'me@cron.example', displayName: 'Me', refreshToken: 'x' } }))
+    const connection = await runInWorkspace(first, () => connectStandIn('google', { clientId: 'id', clientSecret: 'secret' }))
+    await runInWorkspace(first, () => prisma.connection.update({ where: { id: connection.id }, data: { status: 'FAILING' } }))
+    expect(await anyMailboxConnected()).toBe(false)
+    await runInWorkspace(first, () => prisma.connection.delete({ where: { id: connection.id } }))
+    await runInWorkspace(first, () => prisma.mailbox.delete({ where: { id: mailbox.id } }))
   })
 
   it('clears the answer so that it expires at once rather than being served stale', () => {

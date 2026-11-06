@@ -1,33 +1,34 @@
 import 'server-only'
-import { revalidateTag, unstable_cache } from 'next/cache'
+import { unstable_cache } from 'next/cache'
+import { isConnected } from '@/lib/connectors/connections'
+import { GOOGLE_CONNECTOR } from '@/lib/google/client'
 import { prisma, runInWorkspace } from '@/lib/prisma'
 import { trustedPrisma } from '@/lib/trusted-prisma'
 import { runSync } from './contacts'
+import { ANY_MAILBOX_TAG } from './mailboxes-changed'
 
 const DAY_IN_SECONDS = 86_400
-
-/**
- * Whether the cron has anything to read, kept outside the database so that asking doesn't wake it: a
- * serverless database bills by the hour it's awake. Whatever connects or removes a mailbox clears it
- * at once; the daily refresh is only the safety net for a change made by hand.
- */
-const ANY_MAILBOX_TAG = 'any-mailbox'
 
 // Trusted: the list of workspaces is what the cron walks, each then bound before it touches anything.
 const allWorkspaces = () => trustedPrisma.workspace.findMany({ select: { id: true }, orderBy: { createdAt: 'asc' } })
 
+/** A mailbox is only something to read while its workspace has a Google client to read it with. */
+const hasMailboxToRead = async () => (await isConnected(GOOGLE_CONNECTOR)) && Boolean(await prisma.mailbox.findFirst({ select: { id: true } }))
+
 /** Workspace by workspace: row-level security lets no query see across them, the owner's included. */
 async function findAnyMailbox(): Promise<boolean> {
   for (const { id } of await allWorkspaces()) {
-    if (await runInWorkspace(id, () => prisma.mailbox.findFirst({ select: { id: true } }))) return true
+    if (await runInWorkspace(id, hasMailboxToRead)) return true
   }
   return false
 }
 
+/**
+ * Whether the cron has anything to read, kept outside the database so that asking doesn't wake it: a
+ * serverless database bills by the hour it's awake. Whatever connects or removes a mailbox or a connector
+ * clears it at once (./mailboxes-changed.ts); the daily refresh is only the safety net for a change made by hand.
+ */
 export const anyMailboxConnected = unstable_cache(findAnyMailbox, [ANY_MAILBOX_TAG], { tags: [ANY_MAILBOX_TAG], revalidate: DAY_IN_SECONDS })
-
-/** Clears the answer, so the next run asks. Next applies it when the route or action returns, so it has to be called before that. */
-export const mailboxesChanged = () => revalidateTag(ANY_MAILBOX_TAG, { expire: 0 })
 
 type Totals = Awaited<ReturnType<typeof runSync>> & { workspaces: number; workspaceErrors: number }
 

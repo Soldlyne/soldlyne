@@ -1,6 +1,7 @@
 import 'server-only'
+import { connectedFields, markFailing } from '@/lib/connectors/connections'
 import { prisma } from '@/lib/prisma'
-import { decrypt, encrypt } from './crypto'
+import { openText, sealText } from '@/lib/secrets'
 
 /**
  * Minimal Google OAuth + Gmail and Calendar REST client (no googleapis dependency).
@@ -17,27 +18,32 @@ export const GOOGLE_SCOPES = [
   'profile',
 ]
 
-function clientId() {
-  const id = process.env.GOOGLE_CLIENT_ID
-  if (!id) throw new Error('GOOGLE_CLIENT_ID is not set')
-  return id
-}
-function clientSecret() {
-  const secret = process.env.GOOGLE_CLIENT_SECRET
-  if (!secret) throw new Error('GOOGLE_CLIENT_SECRET is not set')
-  return secret
+/** The connector that holds each workspace's OAuth client. */
+export const GOOGLE_CONNECTOR = 'google'
+
+export type GoogleClient = { clientId: string; clientSecret: string }
+
+/**
+ * The OAuth client of the workspace this runs in. Each company registers its own at Google, and a token
+ * can only be refreshed by the client it was issued to, so another workspace's would be no use anyway.
+ * Null while it has none, or while Google refuses it.
+ */
+export async function googleClient(): Promise<GoogleClient | null> {
+  const fields = await connectedFields(GOOGLE_CONNECTOR)
+  return fields && { clientId: fields.clientId, clientSecret: fields.clientSecret }
 }
 
 /** Holds the OAuth state between the connect route and the callback. */
 export const OAUTH_STATE_COOKIE = 'google_oauth_state'
+export const OAUTH_STATE_PATH = '/api/google'
 
 export function redirectUri(origin: string) {
   return `${origin}/api/google/callback`
 }
 
-export function authorizationUrl(origin: string, state: string, loginHint?: string) {
+export function authorizationUrl(client: GoogleClient, origin: string, state: string, loginHint?: string) {
   const params = new URLSearchParams({
-    client_id: clientId(),
+    client_id: client.clientId,
     redirect_uri: redirectUri(origin),
     response_type: 'code',
     // No include_granted_scopes: a mailbox connected earlier must not bring back wider grants.
@@ -53,14 +59,17 @@ export function authorizationUrl(origin: string, state: string, loginHint?: stri
 
 type TokenResponse = { access_token: string; expires_in: number; refresh_token?: string; scope: string; id_token?: string; error?: string; error_description?: string }
 
-async function tokenRequest(body: Record<string, string>): Promise<TokenResponse> {
+const GOOGLE_TIMEOUT_MS = 15_000
+
+export async function tokenRequest(client: GoogleClient, body: Record<string, string>): Promise<TokenResponse> {
   const response = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ client_id: clientId(), client_secret: clientSecret(), ...body }),
+    body: new URLSearchParams({ client_id: client.clientId, client_secret: client.clientSecret, ...body }),
+    signal: AbortSignal.timeout(GOOGLE_TIMEOUT_MS),
   })
   const data = (await response.json()) as TokenResponse
-  if (!response.ok) throw new GoogleAuthError(data.error ?? `HTTP ${response.status}`, data.error_description)
+  if (!response.ok) throw new GoogleAuthError(data.error ?? `HTTP ${response.status}`, data.error_description, response.status)
   return data
 }
 
@@ -68,13 +77,26 @@ export class GoogleAuthError extends Error {
   constructor(
     public code: string,
     description?: string,
+    public status?: number,
   ) {
     super(description ? `${code}: ${description}` : code)
   }
 }
 
-export async function exchangeCode(code: string, origin: string) {
-  return tokenRequest({ code, grant_type: 'authorization_code', redirect_uri: redirectUri(origin) })
+export async function exchangeCode(client: GoogleClient, code: string, origin: string) {
+  return tokenRequest(client, { code, grant_type: 'authorization_code', redirect_uri: redirectUri(origin) })
+}
+
+/** In Soldlyne's own words, for the connector's card: nothing about one mailbox, and the client is what to fix. */
+export const CLIENT_REFUSED = "Google refused this client's id or secret. Check them, or connect it again with a new secret."
+
+/**
+ * Who a refusal is about. A refused client is the workspace's connector to fix, and fixing it brings every
+ * mailbox back. Refused tokens are that one mailbox's, which has to connect again.
+ */
+async function recordRefusal(mailboxId: string, error: GoogleAuthError) {
+  if (error.code === 'invalid_client') return markFailing(GOOGLE_CONNECTOR, CLIENT_REFUSED)
+  if (['invalid_grant', 'unauthorized_client'].includes(error.code)) await prisma.mailbox.update({ where: { id: mailboxId }, data: { authFailedAt: new Date(), lastError: error.message } })
 }
 
 export async function profileFromIdToken(idToken: string): Promise<{ email: string; name?: string }> {
@@ -86,25 +108,24 @@ export async function profileFromIdToken(idToken: string): Promise<{ email: stri
 export async function accessToken(mailboxId: string): Promise<string> {
   const mailbox = await prisma.mailbox.findUniqueOrThrow({ where: { id: mailboxId } })
   if (mailbox.accessToken && mailbox.tokenExpiresAt && mailbox.tokenExpiresAt.getTime() > Date.now() + 60_000) {
-    return decrypt(mailbox.accessToken)
+    return openText(mailbox.accessToken)
   }
+  const client = await googleClient()
+  if (!client) throw new GoogleAuthError('no_client', 'This workspace has no working Google connector.')
   try {
-    const token = await tokenRequest({ refresh_token: decrypt(mailbox.refreshToken), grant_type: 'refresh_token' })
+    const token = await tokenRequest(client, { refresh_token: openText(mailbox.refreshToken), grant_type: 'refresh_token' })
     await prisma.mailbox.update({
       where: { id: mailboxId },
       data: {
-        accessToken: encrypt(token.access_token),
+        accessToken: sealText(token.access_token),
         tokenExpiresAt: new Date(Date.now() + token.expires_in * 1000),
         authFailedAt: null,
-        ...(token.refresh_token ? { refreshToken: encrypt(token.refresh_token) } : {}),
+        ...(token.refresh_token ? { refreshToken: sealText(token.refresh_token) } : {}),
       },
     })
     return token.access_token
   } catch (error) {
-    // Revoked or expired consent: the mailbox must be reconnected.
-    if (error instanceof GoogleAuthError && ['invalid_grant', 'unauthorized_client', 'invalid_client'].includes(error.code)) {
-      await prisma.mailbox.update({ where: { id: mailboxId }, data: { authFailedAt: new Date(), lastError: error.message } })
-    }
+    if (error instanceof GoogleAuthError) await recordRefusal(mailboxId, error)
     throw error
   }
 }

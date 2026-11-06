@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createUser, removeUsers, removeWorkspace } from '@/test/fixtures'
+import { connectMailStandIn, createUser, removeUsers, removeWorkspace } from '@/test/fixtures'
 import { mcpClient } from '@/test/mcp-client'
 import { createDealFixture, fillSeller, TWO_RATES } from '@/lib/quotes/__tests__/fixtures'
 
@@ -36,11 +36,10 @@ afterAll(async () => {
   await removeUsers(domain)
 })
 
-beforeEach(() => {
+beforeEach(async () => {
   process.env.BETTER_AUTH_URL = ORIGIN
   process.env.BETTER_AUTH_SECRET = 'a-secret-for-these-tests'
-  delete process.env.RESEND_API_KEY
-  delete process.env.SOLDLYNE_MAIL_FROM
+  await inSolo(() => prisma.connection.deleteMany())
   vi.unstubAllGlobals()
 })
 
@@ -141,8 +140,7 @@ describe('read_quote and list_quotes', () => {
 
 describe('send_quote', () => {
   it('mails the customer and says to whom, without handing over the link', async () => {
-    process.env.RESEND_API_KEY = 'key'
-    process.env.SOLDLYNE_MAIL_FROM = 'Quotes <quotes@soldlyne.example>'
+    await inSolo(connectMailStandIn)
     const mails: { to: string[]; text: string }[] = []
     vi.stubGlobal('fetch', async (_url: string, init: RequestInit) => {
       mails.push(JSON.parse(String(init.body)))

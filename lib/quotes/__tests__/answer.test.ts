@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { workspaceForFile } from '@/test/fixtures'
 import { createDealFixture, fillSeller, TWO_RATES } from './fixtures'
 
@@ -28,8 +28,6 @@ const stageNamed = (name: string) => prisma.stage.findFirstOrThrow({ where: { na
 beforeAll(async () => {
   process.env.BETTER_AUTH_SECRET = 'a-secret-for-these-tests'
   process.env.BETTER_AUTH_URL = 'http://localhost:3100'
-  delete process.env.RESEND_API_KEY
-  delete process.env.SOLDLYNE_MAIL_FROM
   await asMember(async () => {
     await fillSeller()
     await prisma.stage.createMany({
@@ -43,10 +41,6 @@ beforeAll(async () => {
   })
   await asOther(fillSeller)
   await noWonStage.run(() => withMcpActor('test', async () => void (await fillSeller())))
-})
-
-beforeEach(() => {
-  delete process.env.RESEND_API_KEY
 })
 
 /** A quote sent and its link's token, with its deal and all around it. */

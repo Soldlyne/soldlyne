@@ -38,7 +38,8 @@ async function createEveryModel() {
   const quoteCounter = await prisma.quoteCounter.create({ data: {} })
   const quote = await prisma.quote.create({ data: { number: 1, reference: '0001', issueDate: new Date(), validUntil: new Date(), tokenHash: tag, dealId: deal.id, companyId: company.id, contactId: person.id } })
   const quoteLine = await prisma.quoteLine.create({ data: { quoteId: quote.id, productId: product.id, position: 0, description: 'Line', quantityMilli: BigInt(1000), unitPriceMinor: BigInt(100), taxRateMilliPercent: 20000, netMinor: BigInt(100) } })
-  return Object.fromEntries(Object.entries({ entity, project, product, stage, customField, view, company, person, partner, deal, activity, activityParticipant, task, note, timelineEvent, mailbox, leadSource, invitation, sellerDetails, quoteCounter, quote, quoteLine }).map(([model, { id }]) => [model[0].toUpperCase() + model.slice(1), id])) as Record<string, string>
+  const connection = await prisma.connection.create({ data: { kind: tag, sealedCredentials: 'x', connectedBy: 'owner@acme.example' } })
+  return Object.fromEntries(Object.entries({ entity, project, product, stage, customField, view, company, person, partner, deal, activity, activityParticipant, task, note, timelineEvent, mailbox, leadSource, invitation, sellerDetails, quoteCounter, quote, quoteLine, connection }).map(([model, { id }]) => [model[0].toUpperCase() + model.slice(1), id])) as Record<string, string>
 }
 
 /** A new row with only what each model requires, parents taken from the given rows. */
@@ -65,6 +66,7 @@ const NEW_ROW: Record<string, (rows: Record<string, string>) => object> = {
   QuoteCounter: () => ({}),
   Quote: () => ({ number: Math.floor(Math.random() * 1_000_000_000) + 2, reference: unique(), issueDate: new Date(), validUntil: new Date() }),
   QuoteLine: (rows) => ({ quoteId: rows.Quote, position: 1, description: unique(), quantityMilli: BigInt(1000), unitPriceMinor: BigInt(100), taxRateMilliPercent: 20000, netMinor: BigInt(100) }),
+  Connection: () => ({ kind: unique(), sealedCredentials: 'x', connectedBy: 'owner@acme.example' }),
 }
 
 /** A workspace holds one of each of these: the row its test adds takes the place of the one already there. */
@@ -212,6 +214,7 @@ describe('with no workspace', () => {
     expect(await asAny(trustedPrisma, 'Company').count()).toBe(0)
     expect(await asAny(trustedPrisma, 'Deal').count()).toBe(0)
     expect(await asAny(trustedPrisma, 'Mailbox').count()).toBe(0)
+    expect(await asAny(trustedPrisma, 'Connection').count()).toBe(0)
   })
 
   it('only the three tables looked up before a workspace is known open to the trusted path', async () => {
