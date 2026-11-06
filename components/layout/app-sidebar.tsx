@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BarChart3, Building2, FileText, HeartHandshake, Magnet, CheckSquare, Home, Inbox, KanbanSquare, Package, Settings, Upload, Users, Handshake } from 'lucide-react'
+import { BarChart3, Building2, FileText, HeartHandshake, Magnet, CheckSquare, Home, Inbox, KanbanSquare, Package, Plug, Settings, Upload, Users, Handshake } from 'lucide-react'
 import { WorkspaceSwitcher, type SwitchableWorkspace } from './workspace-switcher'
 import {
   Sidebar,
@@ -77,6 +77,7 @@ export function AppSidebar({ projects, openTasks, workspace, otherWorkspaces, ma
     { title: 'Import', url: '/import', icon: Upload },
     { title: 'Lead capture', url: '/lead-sources', icon: Magnet },
     { title: 'Mailboxes', url: '/mailboxes', icon: Inbox },
+    { title: 'Connectors', url: '/connectors', icon: Plug },
     { title: 'Settings', url: '/settings', icon: Settings },
   ]
   const active = activeUrl(pathname, [...groups, { items: footer }])
