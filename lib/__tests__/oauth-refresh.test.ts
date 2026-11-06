@@ -5,6 +5,8 @@ import { createBareWorkspace, createUser, removeUsers, removeWorkspace } from '@
 
 const { trustedPrisma } = await import('@/lib/trusted-prisma')
 const { createAuth } = await import('../auth')
+const { removeMember } = await import('@/lib/workspaces/team')
+const { whereAccessGoes } = await import('../consent')
 const { POST: mcpRoute } = await import('@/app/api/mcp/route')
 
 const ORIGIN = 'http://localhost:3100'
@@ -52,6 +54,8 @@ async function approve(clientId: string, codeChallenge: string): Promise<string>
   const query = new URLSearchParams({ response_type: 'code', client_id: clientId, redirect_uri: REDIRECT_URI, state: 'a-state', scope: 'openid profile email offline_access', prompt: 'consent', code_challenge: codeChallenge, code_challenge_method: 'S256', resource: MCP_URL })
   const opened = await auth.handler(new Request(`${ORIGIN}/api/auth/oauth2/authorize?${query}`, { headers: { cookie, accept: 'text/html' } }))
   const consentPage = new URL(opened.headers.get('location') ?? (await opened.json()).url, ORIGIN)
+  // The consent screen says where the access goes from this: it has to arrive in the signed address.
+  expect(whereAccessGoes(consentPage.searchParams.get('redirect_uri'))).toBe(new URL(REDIRECT_URI).host)
   const answer = await postJson('/oauth2/consent', { accept: true, oauth_query: consentPage.search.slice(1) }, cookie)
   const { url } = await answer.json()
   return new URL(url).searchParams.get('code')!
@@ -98,6 +102,24 @@ afterAll(async () => {
   await trustedPrisma.oauthClient.deleteMany({ where: { clientId: { in: clientIds } } })
   await removeWorkspace(workspaceId)
   await removeUsers(`@${tag}.example`)
+})
+
+describe("an assistant whose member is taken out of the workspace", () => {
+  it('loses access on its next call, with the same token, and gets it back if they return', async () => {
+    const { tokens } = await connect()
+    await expectGoodOnMcp(tokens.access_token)
+    const other = await createUser(`other-owner@${tag}.example`)
+    await trustedPrisma.member.create({ data: { workspaceId, userId: other.id, role: 'OWNER' } })
+    const { id: memberId } = await trustedPrisma.user.findUniqueOrThrow({ where: { email: MEMBER } })
+    expect(await removeMember(workspaceId, other.id, memberId)).toEqual({ ok: true })
+    const refused = await listTools(tokens.access_token)
+    expect(refused.status).toBe(403)
+    expect(refused.text).toContain('no_workspace')
+    expect(refused.text).not.toContain('create_deal')
+    await trustedPrisma.member.create({ data: { workspaceId, userId: memberId, role: 'OWNER' } })
+    await trustedPrisma.member.deleteMany({ where: { workspaceId, userId: other.id } })
+    await expectGoodOnMcp(tokens.access_token)
+  })
 })
 
 describe('an assistant keeping its connection', () => {
