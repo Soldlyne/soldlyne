@@ -219,7 +219,7 @@ describe('with no workspace', () => {
     expect(await asAny(trustedPrisma, 'Connection').count()).toBe(0)
   })
 
-  it('only the four tables looked up before a workspace is known open to the trusted path', async () => {
+  it('only the tables looked up before a workspace is known open to the trusted path', async () => {
     expect(await trustedPrisma.leadSource.findUnique({ where: { keyHash: (await asA(() => prisma.leadSource.findUniqueOrThrow({ where: { id: rowsA.LeadSource } }))).keyHash } })).not.toBeNull()
     expect(await trustedPrisma.invitation.findFirst({ where: { id: rowsB.Invitation } })).not.toBeNull()
     expect(await trustedPrisma.quote.findUnique({ where: { tokenHash: (await asA(() => prisma.quote.findUniqueOrThrow({ where: { id: rowsA.Quote } }))).tokenHash! } })).not.toBeNull()
