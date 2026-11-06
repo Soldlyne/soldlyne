@@ -1088,6 +1088,7 @@ model Connection {
   updatedAt         DateTime         @updatedAt
 
   @@unique([workspaceId, kind])
+}
 
 /// A key another app reads this workspace's records with. Only its hash is kept: it is shown once.
 model ApiKey {
