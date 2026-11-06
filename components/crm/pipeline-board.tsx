@@ -66,7 +66,7 @@ export function PipelineBoard({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-3 border-b px-4 py-3 lg:px-6">
-        <h1 className="flex items-center gap-2 text-base font-semibold">
+        <h1 className="flex items-center gap-2 text-lg font-semibold">
           {color && <span className="size-2.5 rounded-full" style={{ backgroundColor: color }} aria-hidden />}
           {title}
         </h1>
@@ -76,7 +76,7 @@ export function PipelineBoard({
         {filters}
         <div className="ml-auto">{actions}</div>
       </div>
-      <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+      <DndContext id="pipeline-board" sensors={sensors} onDragEnd={onDragEnd}>
         <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto p-4 lg:px-6">
           {stages.map((stage) => (
             <Column

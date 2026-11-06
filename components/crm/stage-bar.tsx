@@ -34,9 +34,10 @@ export function StageBar({ stages, current, save }: { stages: Stage[]; current: 
             }
             className={cn(
               'min-w-20 flex-1 rounded-md border px-2 py-1.5 text-xs font-medium whitespace-nowrap transition-colors',
-              reached && stage.kind === 'OPEN' && 'border-primary bg-primary text-primary-foreground',
-              reached && stage.kind === 'WON' && 'border-success bg-success text-white',
-              reached && stage.kind === 'LOST' && 'border-destructive bg-destructive text-white',
+              reached && stage.kind === 'OPEN' && stage.id !== optimistic && 'border-transparent bg-accent text-accent-foreground',
+              reached && stage.kind === 'OPEN' && stage.id === optimistic && 'border-primary bg-primary text-primary-foreground',
+              reached && stage.kind === 'WON' && 'border-success bg-success text-primary-foreground',
+              reached && stage.kind === 'LOST' && 'border-destructive bg-destructive text-destructive-foreground',
               !reached && 'text-muted-foreground hover:bg-accent hover:text-foreground',
             )}
           >

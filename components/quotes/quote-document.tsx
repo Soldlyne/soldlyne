@@ -76,12 +76,13 @@ function Totals({ currency, subtotalMinor, taxes, totalMinor }: Pick<QuoteDocume
           <dd className="num">{formatMinor(tax.taxMinor, currency)}</dd>
         </div>
       ))}
-      <div className="flex justify-between gap-4 border-t pt-1 font-semibold">
+      <div className="flex justify-between gap-4 border-t pt-2 text-base font-semibold">
         <dt>Total</dt>
         <dd className="num" data-testid="quote-total">
           {formatMinor(totalMinor, currency)}
         </dd>
       </div>
+      <span aria-hidden className="rule-double" />
     </dl>
   )
 }
@@ -100,12 +101,12 @@ function TextBlock({ title, text }: { title: string; text: string | null }) {
 export function QuoteDocumentView({ document }: { document: QuoteDocument }) {
   const { reference, issueDate, validUntil, seller, customer, lines, currency, notes, terms } = document
   return (
-    <article className="space-y-6 rounded-lg border bg-background p-4 lg:p-6">
+    <article className="space-y-6 rounded-lg border bg-card p-4 lg:p-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <Seller seller={seller} />
         <div className="text-sm sm:text-right">
           <h2 className="text-xl font-semibold">Quote</h2>
-          <p>No. {reference}</p>
+          <p className="num">No. {reference}</p>
           <p className="text-muted-foreground">Issued {formatQuoteDate(issueDate)}</p>
           <p className="text-muted-foreground">Valid until {formatQuoteDate(validUntil)}</p>
         </div>

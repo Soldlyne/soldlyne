@@ -19,7 +19,7 @@ const Refusal = ({ answered }: { answered: Answered | null }) =>
 function AcceptForm({ accept, sellerName }: { accept: Answering; sellerName: string }) {
   const [answered, submit, pending] = useActionState<Answered | null, FormData>(accept, null)
   return (
-    <form action={submit} className="space-y-3 rounded-lg border bg-background p-4">
+    <form action={submit} className="space-y-3 rounded-lg border bg-card p-4">
       <h2 className="font-medium">Accept this quote</h2>
       <div className="space-y-1.5">
         <Label htmlFor="accept-name">Your name</Label>
@@ -41,7 +41,7 @@ function AcceptForm({ accept, sellerName }: { accept: Answering; sellerName: str
 function DeclineForm({ decline }: { decline: Answering }) {
   const [answered, submit, pending] = useActionState<Answered | null, FormData>(decline, null)
   return (
-    <details className="rounded-lg border bg-background p-4">
+    <details className="rounded-lg border bg-card p-4">
       <summary className="cursor-pointer font-medium">Decline this quote</summary>
       <form action={submit} className="mt-3 space-y-3">
         <div className="space-y-1.5">

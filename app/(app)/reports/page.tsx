@@ -23,7 +23,7 @@ function Bar({ value, max, label }: { value: number; max: number; label: string 
   return (
     <div className="flex items-center gap-2" title={label}>
       <div className="h-2 flex-1 rounded-full bg-muted">
-        <div className="h-2 rounded-full bg-brand-500" style={{ width: `${max ? Math.max((value / max) * 100, value ? 2 : 0) : 0}%` }} />
+        <div className="h-2 rounded-full bg-chart-1" style={{ width: `${max ? Math.max((value / max) * 100, value ? 2 : 0) : 0}%` }} />
       </div>
     </div>
   )
@@ -165,7 +165,7 @@ export default async function ReportsPage({ searchParams }: PageProps<'/reports'
             return (
               <div key={week.start.toISOString()} className="group flex h-full flex-1 flex-col justify-end" title={label}>
                 <span className="num mb-1 text-center text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100">{total}</span>
-                <div className="rounded-t bg-brand-500 transition-opacity group-hover:opacity-80" style={{ height: `${(total / weekMax) * 100}%`, minHeight: total ? 2 : 0 }} />
+                <div className="rounded-t bg-chart-1 transition-opacity group-hover:opacity-80" style={{ height: `${(total / weekMax) * 100}%`, minHeight: total ? 2 : 0 }} />
               </div>
             )
           })}
