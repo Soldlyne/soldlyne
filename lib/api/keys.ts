@@ -3,21 +3,24 @@ import { sha256 } from '@/lib/hash'
 import { prisma } from '@/lib/prisma'
 import { newApiKeyToken } from './key-token'
 
-const LONGEST_NAME = 100
+export const LONGEST_KEY_NAME = 100
 const PREFIX_LENGTH = 11
+
+/** The one thing a key can do. The read API checks for it, and no other scope exists. */
+export const READ_SCOPE = 'read'
 
 /** How many requests a key may make per window, and how long a window lasts. */
 export const REQUESTS_PER_WINDOW = 120
 export const WINDOW_SECONDS = 60
 
 /** A new key for another app, in the current workspace. Only its hash is kept, so this is the one time it is seen. */
-export async function createApiKey(name: string): Promise<{ id: string; key: string }> {
+export async function createApiKey(name: string): Promise<{ id: string; name: string; scopes: string[]; key: string }> {
   const key = newApiKeyToken()
-  const { id } = await prisma.apiKey.create({
-    data: { name: name.trim().slice(0, LONGEST_NAME) || 'API key', keyHash: sha256(key), prefix: key.slice(0, PREFIX_LENGTH) },
-    select: { id: true },
+  const made = await prisma.apiKey.create({
+    data: { name: name.trim().slice(0, LONGEST_KEY_NAME) || 'API key', keyHash: sha256(key), prefix: key.slice(0, PREFIX_LENGTH), scopes: [READ_SCOPE] },
+    select: { id: true, name: true, scopes: true },
   })
-  return { id, key }
+  return { ...made, key }
 }
 
 /** The current workspace's keys for its settings page, newest first, without their hashes. */
@@ -25,9 +28,10 @@ export const listApiKeys = () => prisma.apiKey.findMany({ orderBy: { createdAt: 
 
 export type ListedApiKey = Awaited<ReturnType<typeof listApiKeys>>[number]
 
-/** Ends a key at its next request. The row stays, so the list still says who had access. */
-export async function revokeApiKey(id: string): Promise<void> {
-  await prisma.apiKey.updateMany({ where: { id, revokedAt: null }, data: { revokedAt: new Date() } })
+/** Ends a key at its next request. The row stays, so the list still says who had access. Says whether this ended one: a key already ended, or another workspace's, is left as it is. */
+export async function revokeApiKey(id: string): Promise<boolean> {
+  const { count } = await prisma.apiKey.updateMany({ where: { id, revokedAt: null }, data: { revokedAt: new Date() } })
+  return count > 0
 }
 
 /**

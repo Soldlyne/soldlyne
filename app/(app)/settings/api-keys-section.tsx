@@ -9,7 +9,7 @@ export async function ApiKeysSection() {
   return (
     <Panel title="API keys">
       <p className="mb-3 text-sm text-muted-foreground">
-        Let another app read this workspace&apos;s deals, companies, stages and products, and nothing else: <span className="font-mono text-xs">{publicUrl()}/api/v1</span>. A key is shown once, and read-only. Only people make keys, here: no assistant can.
+        Let another app read this workspace&apos;s deals, companies, stages and products, and nothing else: <span className="font-mono text-xs">{publicUrl()}/api/v1</span>. A key is shown once, and read-only. An owner or an admin can also have their assistant make or revoke one.
       </p>
       <ApiKeyControls keys={keys} />
     </Panel>

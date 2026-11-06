@@ -40,7 +40,7 @@ export default async function SettingsPage() {
       </Panel>
       <Panel title="Assistants">
         <p className="text-sm text-muted-foreground">
-          Add this address to Claude, ChatGPT or any MCP client as a remote connector: you sign in and approve it, and it can read and update Soldlyne in the workspaces you belong to. Everything it does is recorded as done by MCP.
+          Add this address to Claude, ChatGPT or any MCP client as a remote connector: you sign in and approve it, and it can read and update Soldlyne in the workspaces you belong to. Everything it does to a record is recorded as done by MCP.
         </p>
         <p className="mt-2 rounded-md bg-surface px-3 py-2 font-mono text-xs">{mcpResource()}</p>
       </Panel>

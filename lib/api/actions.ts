@@ -1,30 +1,18 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
-import { managesApiKeys } from '@/lib/workspaces/roles'
 import { requireSeat } from '@/lib/workspaces/seat'
-import { createApiKey, revokeApiKey } from './keys'
+import { createKeyAs, revokeKeyAs } from './key-management'
 
-// Only here, for someone at the screen: no assistant tool reaches any of this, so nothing written in a record can hand out access.
-
-const SETTINGS = '/settings'
-const NOT_ALLOWED = 'Only owners and admins manage API keys.'
-
-async function requireKeyManager() {
-  const { workspace } = await requireSeat()
-  if (!managesApiKeys(workspace.role)) throw new Error(NOT_ALLOWED)
-}
+// For someone at the screen, in the workspace their browser is in. An assistant's tools come to the same place with their member's role: lib/mcp/key-tools.ts.
 
 /** Returns the key once: only its hash is stored. */
 export async function createApiKeyOfWorkspace(name: string): Promise<{ key: string }> {
-  await requireKeyManager()
-  const { key } = await createApiKey(name)
-  revalidatePath(SETTINGS)
+  const { workspace } = await requireSeat()
+  const { key } = await createKeyAs(workspace.role, name)
   return { key }
 }
 
 export async function revokeApiKeyOfWorkspace(id: string): Promise<void> {
-  await requireKeyManager()
-  await revokeApiKey(id)
-  revalidatePath(SETTINGS)
+  const { workspace } = await requireSeat()
+  await revokeKeyAs(workspace.role, id)
 }

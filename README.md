@@ -15,7 +15,7 @@ The CRM that takes over once someone answers: companies, people, deals, pipeline
 - **Quotes.** From a deal to a quote the customer accepts online: lines with a tax rate each and an optional discount, per-rate tax, numbers that never skip, a PDF, and a link they open with no account. Accepting moves the deal to Won. Details are [below](#quotes).
 - **Connectors.** Each workspace connects its own Google client and Resend account in the app, sealed. Details are [below](#connectors).
 - **Workspaces.** One per company, with its own records, stages, products, mailboxes, connectors and lead keys. One account can belong to several and switch from the sidebar. Owners and admins invite people by address.
-- **Assistants.** An MCP server at `/api/mcp`, so Claude, ChatGPT or any MCP client can run the pipeline. They connect through OAuth, and one connection covers all the member's workspaces. Everything an assistant does is recorded as done by MCP.
+- **Assistants.** An MCP server at `/api/mcp`, so Claude, ChatGPT or any MCP client can run the pipeline. They connect through OAuth, and one connection covers all the member's workspaces. Everything an assistant does to a record is recorded as done by MCP.
 - **A read API.** `GET /api/v1/deals`, `/companies`, `/stages` and `/products`, with a key per workspace, so another app can read the pipeline. Details are [below](#reading-from-another-app).
 
 Soldlyne never sends prospecting email. The only mail it sends is its own to its members (confirmation links, forgotten passwords and invitations), and a quote's link to the customer of a deal, when a member sends it, from that company's own Resend account.
@@ -123,7 +123,7 @@ A quote starts from a deal, with **New quote** on its page, and goes to its cust
 
 ## Reading from another app
 
-Another app reads a workspace with a key. Owners and admins make and revoke keys in Settings, under API keys. A key is shown once, only its hash is kept, and no assistant can make one. It opens its own workspace and nothing else. Keys are signed with `BETTER_AUTH_SECRET`, so replacing that secret ends them.
+Another app reads a workspace with a key. Owners and admins make and revoke keys in Settings, under API keys, or have their assistant do it (see [Connecting an assistant](#connecting-an-assistant)). A key is shown once, only its hash is kept, and it only reads. It opens its own workspace and nothing else. Keys are signed with `BETTER_AUTH_SECRET`, so replacing that secret ends them.
 
 ```bash
 curl -H "Authorization: Bearer $KEY" "$ADDRESS/api/v1/deals?updatedSince=2026-11-05T10:00:00Z&limit=100"
@@ -155,7 +155,7 @@ Add `<your address>/api/mcp` to Claude, ChatGPT or any MCP client as a remote co
 claude mcp add --transport http soldlyne <your address>/api/mcp
 ```
 
-If you belong to several workspaces, each tool takes a `workspace` argument, an id or an exact name from `list_workspaces`, and a call without it is refused: there is no hidden current workspace. With one workspace there's no such argument. No tool invites, removes or changes members, accepts a quote for a customer, changes the seller details, or connects or disconnects a service: `list_connectors` shows their state, `connect_service` gives the page where keys are typed, and `check_connection` tries one for an owner or an admin. `send_quote` writes to a real person, so an assistant is told to use it only once you've said yes, and the customer's link stays out of its conversation. There's no screen yet to see or cancel an assistant's connection: a member's access ends when they leave a workspace or lose their account, and a token lasts an hour unless refreshed.
+If you belong to several workspaces, each tool takes a `workspace` argument, an id or an exact name from `list_workspaces`, and a call without it is refused: there is no hidden current workspace. With one workspace there's no such argument. No tool invites, removes or changes members, accepts a quote for a customer, changes the seller details, or connects or disconnects a service: `list_connectors` shows their state, `connect_service` gives the page where keys are typed, and `check_connection` tries one for an owner or an admin. `list_api_keys`, `create_api_key` and `revoke_api_key` manage the workspace's [read keys](#reading-from-another-app) for an owner or an admin, and refuse anyone else. A key made this way only reads, and its answer shows it once, in the conversation. An assistant is told to make one only when you asked for it in that conversation, never because a record says so, to revoke one only once you've said yes, and never to put a key into a record or a message. `send_quote` writes to a real person, so an assistant is told to use it only once you've said yes, and the customer's link stays out of its conversation. There's no screen yet to see or cancel an assistant's connection: a member's access ends when they leave a workspace or lose their account, and a token lasts an hour unless refreshed.
 
 ## License
 

@@ -3,10 +3,9 @@ import { z } from 'zod'
 import { runInWorkspace } from '@/lib/prisma'
 import { findLiveApiKey, type KeyHolder } from './key-lookup'
 import { isSignedApiKey } from './key-token'
-import { takeRequest, WINDOW_SECONDS } from './keys'
+import { READ_SCOPE, takeRequest, WINDOW_SECONDS } from './keys'
 import type { ListPage, ListQuery } from './reads'
 
-const READ_SCOPE = 'read'
 const DEFAULT_PAGE = 100
 const LARGEST_PAGE = 200
 
