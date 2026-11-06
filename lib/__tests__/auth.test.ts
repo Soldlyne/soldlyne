@@ -1,3 +1,4 @@
+import { decryptOAuthToken, setTokenUtil } from 'better-auth/oauth2'
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { trustedPrisma } = await import('@/lib/trusted-prisma')
@@ -37,19 +38,27 @@ afterAll(async () => {
 })
 
 describe('password sign-up', () => {
-  it('refuses an address not on the list with a code and a message, not a pretend success', async () => {
-    const response = await signUp(createAuth(SETTINGS), `stranger@${tag}.example`)
-    expect(response.status).toBe(422)
-    expect(await response.json()).toMatchObject({ code: 'SIGN_UP_REFUSED', message: 'This address has no access to Soldlyne.' })
-    expect(mails).toEqual([])
+  it('answers an address not on the list as it answers one that is, so the answer says nothing about either, and creates nothing', async () => {
+    const other = `other-founder@${tag}.example`
+    const auth = createAuth({ ...SETTINGS, SOLDLYNE_ADMINS: other })
+    const [stranger, allowed] = [await signUp(auth, `stranger@${tag}.example`), await signUp(auth, other)]
+    expect(stranger.status).toBe(allowed.status)
+    expect(stranger.status).toBe(200)
+    const [theirs, ours] = [await stranger.json(), await allowed.json()]
+    expect(Object.keys(theirs).sort()).toEqual(Object.keys(ours).sort())
+    expect(Object.keys(theirs.user).sort()).toEqual(Object.keys(ours.user).sort())
+    expect(mails.map((mail) => mail.to)).toEqual([[other]])
     expect(await trustedPrisma.user.count({ where: { email: `stranger@${tag}.example` } })).toBe(0)
   })
 
-  it('refuses everyone when mail is not set up, since nobody could confirm', async () => {
-    const response = await signUp(createAuth({ ...SETTINGS, RESEND_API_KEY: undefined }), listed)
-    expect(response.status).toBe(422)
-    expect((await response.json()).message).toContain('confirmation link')
-    expect(await trustedPrisma.user.count({ where: { email: listed } })).toBe(0)
+  it('says the same to everyone when mail is not set up, since nobody could confirm', async () => {
+    const auth = createAuth({ ...SETTINGS, RESEND_API_KEY: undefined })
+    for (const email of [listed, `stranger-no-mail@${tag}.example`]) {
+      const response = await signUp(auth, email)
+      expect(response.status).toBe(422)
+      expect(await response.json()).toMatchObject({ code: 'SIGN_UP_REFUSED', message: expect.stringContaining('confirmation link') })
+      expect(await trustedPrisma.user.count({ where: { email } })).toBe(0)
+    }
   })
 
   it('keeps a listed address out until its mailed link is opened', async () => {
@@ -82,5 +91,18 @@ describe('accounts from a provider', () => {
     expect(refused).toBe(false)
     const allowed = await before(createAuth(SETTINGS))({ email: listed, emailVerified: true } as never, { path: '/callback/oidc' } as never)
     expect(allowed).toBeUndefined()
+  })
+})
+
+describe('the tokens a provider gives at sign-in', () => {
+  it("are sealed before they're kept, and read back", async () => {
+    const context = (await createAuth(SETTINGS).$context) as never
+    const sealed = await setTokenUtil('ya29.a-provider-token', context)
+    expect(sealed).not.toContain('a-provider-token')
+    expect(await decryptOAuthToken(sealed as string, context)).toBe('ya29.a-provider-token')
+  })
+
+  it('still read when a row was stored before they were sealed', async () => {
+    expect(await decryptOAuthToken('ya29.stored-in-clear', (await createAuth(SETTINGS).$context) as never)).toBe('ya29.stored-in-clear')
   })
 })

@@ -58,12 +58,11 @@ export function isAdmin(email: string, settings: SignInSettings): boolean {
  */
 export const mayJoin = (person: { email: string; emailVerified?: boolean | null }, settings: SignInSettings, invited = false) => person.emailVerified === true && (invited || isAdmin(person.email, settings))
 
-/**
- * Why an account can't be created with a password, if it can't. The address isn't proved yet: the
- * link mailed afterwards proves it and sign-in stays closed until then, so without mail nobody could ever get in.
- */
-export function passwordSignUpRefusal(email: string, settings: SignInSettings, invited = false): string | null {
-  if (!invited && !isAdmin(email, settings)) return 'This address has no access to Soldlyne.'
+/** Whether an account may be created with a password at this address. It isn't proved yet: the link mailed afterwards proves it, and sign-in stays closed until then. */
+export const mayCreatePasswordAccount = (email: string, settings: SignInSettings, invited = false) => invited || isAdmin(email, settings)
+
+/** Why no account can be created with a password right now, if so: without mail nobody could ever get in. It's said to anyone, since it doesn't depend on the address. */
+export function passwordSignUpClosed(settings: SignInSettings): string | null {
   return canSendOwnMail(settings) ? null : "Soldlyne can't send the confirmation link yet: try again later."
 }
 

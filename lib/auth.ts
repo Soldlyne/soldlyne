@@ -8,7 +8,7 @@ import { nextCookies } from 'better-auth/next-js'
 import { requestToResourceInput, verifyAccessTokenRequest } from 'better-auth/oauth2'
 import { sendOwnMail } from './mail'
 import { publicUrl } from './public-url'
-import { accountMail, companyLogin, isAdmin, mayJoin, passwordSignUpRefusal, signInOf, type SignInSettings } from './sign-in'
+import { accountMail, companyLogin, isAdmin, mayCreatePasswordAccount, mayJoin, passwordSignUpClosed, signInOf, type SignInSettings } from './sign-in'
 import { SIGN_UP_REFUSED } from './sign-up-refused'
 import { trustedPrisma } from './trusted-prisma'
 import { hasLiveInvitation } from './workspaces/invitation-gate'
@@ -68,6 +68,8 @@ export function createAuth(settings: SignInSettings) {
     account: {
       // Spelled out though it's the default: whoever signed up with this address and never proved it must not inherit the provider's account.
       accountLinking: { enabled: true, requireLocalEmailVerified: true },
+      // Sealed from now on; a row stored before reads as it stands, and is sealed when that person next signs in through their provider.
+      encryptOAuthTokens: true,
     },
     databaseHooks: {
       user: {
@@ -76,9 +78,10 @@ export function createAuth(settings: SignInSettings) {
             // Only those not on the list need the database read.
             const invited = !isAdmin(user.email, settings) && (await hasLiveInvitation(user.email))
             if (context?.path === PASSWORD_SIGN_UP) {
-              const refusal = passwordSignUpRefusal(user.email, settings, invited)
-              // Not a 403: Better Auth answers one here with a pretend success, and they'd wait for a mail that never comes.
-              if (refusal) throw new APIError('UNPROCESSABLE_ENTITY', { message: refusal, code: SIGN_UP_REFUSED })
+              const closed = passwordSignUpClosed(settings)
+              if (closed) throw new APIError('UNPROCESSABLE_ENTITY', { message: closed, code: SIGN_UP_REFUSED })
+              // A 403: Better Auth then answers as it does for an address it already knows, so the answer can't be used to find out who is invited or an admin.
+              if (!mayCreatePasswordAccount(user.email, settings, invited)) throw new APIError('FORBIDDEN')
               return
             }
             // False rather than an error: the provider's callback then sends the person back to /login?error=unable_to_create_user.

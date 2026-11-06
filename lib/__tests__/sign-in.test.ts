@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { accountMail, companyLogin, isAdmin, mayJoin, passwordSignUpRefusal, signInOf } from '../sign-in'
+import { accountMail, companyLogin, isAdmin, mayJoin, mayCreatePasswordAccount, passwordSignUpClosed, signInOf } from '../sign-in'
 
 const COMPANY = { OIDC_ISSUER: 'https://auth.example.com/api/auth', OIDC_CLIENT_ID: 'client', OIDC_CLIENT_SECRET: 'secret', OIDC_NAME: 'Acme' }
 const MAIL = { RESEND_API_KEY: 'key', SOLDLYNE_MAIL_FROM: 'Soldlyne <soldlyne@example.com>' }
@@ -59,20 +59,20 @@ describe('who may get an account', () => {
 
   it('refuses an address not on the list', () => {
     expect(mayJoin({ email: 'stranger@example.com', emailVerified: true }, ADMINS)).toBe(false)
-    expect(passwordSignUpRefusal('stranger@example.com', { ...ADMINS, ...MAIL })).toContain('no access')
+    expect(mayCreatePasswordAccount('stranger@example.com', ADMINS)).toBe(false)
   })
 
   it('lets an invited address join through a provider once verified, and with a password, though not on the list', () => {
     expect(mayJoin({ email: 'invited@example.com', emailVerified: true }, ADMINS, true)).toBe(true)
     expect(mayJoin({ email: 'invited@example.com', emailVerified: false }, ADMINS, true)).toBe(false)
-    expect(passwordSignUpRefusal('invited@example.com', { ...ADMINS, ...MAIL }, true)).toBeNull()
-    expect(passwordSignUpRefusal('invited@example.com', { ...ADMINS, RESEND_API_KEY: 'key' }, true)).toContain('confirmation link')
+    expect(mayCreatePasswordAccount('invited@example.com', ADMINS, true)).toBe(true)
   })
 
   it('lets a listed address sign up with a password only if the link proving it can be mailed', () => {
-    expect(passwordSignUpRefusal('founder@example.com', { ...ADMINS, ...MAIL })).toBeNull()
-    expect(passwordSignUpRefusal('founder@example.com', { ...ADMINS, RESEND_API_KEY: 'key' })).toContain('confirmation link')
-    expect(passwordSignUpRefusal('founder@example.com', { ...ADMINS, SOLDLYNE_MAIL_FROM: 'a@example.com' })).toContain('confirmation link')
+    expect(mayCreatePasswordAccount('founder@example.com', ADMINS)).toBe(true)
+    expect(passwordSignUpClosed(MAIL)).toBeNull()
+    expect(passwordSignUpClosed({ RESEND_API_KEY: 'key' })).toContain('confirmation link')
+    expect(passwordSignUpClosed({ SOLDLYNE_MAIL_FROM: 'a@example.com' })).toContain('confirmation link')
   })
 })
 

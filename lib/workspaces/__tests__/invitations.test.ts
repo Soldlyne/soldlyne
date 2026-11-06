@@ -220,19 +220,17 @@ describe('the sign-up gate', () => {
     expect((await trustedPrisma.user.findUniqueOrThrow({ where: { email: `signup${domain}` } })).emailVerified).toBe(false)
   })
 
-  it('refuses anyone else as today: a 422 with its code, no account', async () => {
+  it('gives anyone else no account, and an answer that gives nothing away', async () => {
     const response = await signUp(`uninvited${domain}`)
-    expect(response.status).toBe(422)
-    expect(await response.json()).toMatchObject({ code: 'SIGN_UP_REFUSED', message: 'This address has no access to Soldlyne.' })
+    expect(response.status).toBe(200)
     expect(await trustedPrisma.user.count({ where: { email: `uninvited${domain}` } })).toBe(0)
   })
 
-  it('refuses an address whose invitation expired', async () => {
-    const response = await signUp(`late2${domain}`)
-    expect(response.status).toBe(422)
+  it('gives no account to an address whose invitation expired', async () => {
     await invite(`late2${domain}`)
     await runInWorkspace(workspace.id, () => prisma.invitation.updateMany({ where: { email: `late2${domain}` }, data: { expiresAt: new Date(Date.now() - 1000) } }))
-    expect((await signUp(`late2${domain}`)).status).toBe(422)
+    expect((await signUp(`late2${domain}`)).status).toBe(200)
+    expect(await trustedPrisma.user.count({ where: { email: `late2${domain}` } })).toBe(0)
   })
 
   it('through a provider: an invited, verified address gets in; anyone else gets the redirect that says so', async () => {
