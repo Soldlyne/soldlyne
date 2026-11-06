@@ -1,22 +1,36 @@
-import type { Metadata } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import type { Metadata, Viewport } from 'next'
+import { IBM_Plex_Mono, Schibsted_Grotesk } from 'next/font/google'
+import { ThemeProvider } from '@/components/layout/theme-provider'
 import { Toaster } from '@/components/ui/sonner'
+import { publicUrl } from '@/lib/public-url'
 import './globals.css'
 
-const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
-const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] })
+const sans = Schibsted_Grotesk({ variable: '--font-brand-sans', subsets: ['latin'] })
+const mono = IBM_Plex_Mono({ variable: '--font-brand-mono', subsets: ['latin'], weight: ['400', '500'] })
 
 export const metadata: Metadata = {
+  metadataBase: new URL(publicUrl()),
   title: { default: 'Soldlyne', template: '%s · Soldlyne' },
+  description: 'The CRM that takes over once someone answers: companies, people, deals, pipelines and quotes.',
   robots: { index: false, follow: false },
+}
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#fdf9f9' },
+    { media: '(prefers-color-scheme: dark)', color: '#110a0b' },
+  ],
+  colorScheme: 'light dark',
 }
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
+    <html lang="en" suppressHydrationWarning className={`${sans.variable} ${mono.variable} h-full antialiased`}>
       <body className="min-h-full">
-        {children}
-        <Toaster />
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          {children}
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   )

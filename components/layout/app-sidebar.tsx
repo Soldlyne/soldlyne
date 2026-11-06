@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { BarChart3, Building2, FileText, HeartHandshake, Magnet, CheckSquare, Home, Inbox, KanbanSquare, Package, Settings, Upload, Users, Handshake } from 'lucide-react'
+import { LogoMark } from './logo'
 import { WorkspaceSwitcher, type SwitchableWorkspace } from './workspace-switcher'
 import {
   Sidebar,
@@ -89,7 +90,7 @@ export function AppSidebar({ projects, openTasks, workspace, otherWorkspaces, ma
           <Link href={item.url} aria-current={isActive ? 'page' : undefined} onClick={() => isMobile && setOpenMobile(false)}>
             {item.dot ? (
               <span aria-hidden className="flex size-4 items-center justify-center">
-                <span className="size-2 rounded-full" style={{ backgroundColor: item.dot }} />
+                <span className="size-2 rounded-full ring-1 ring-sidebar-foreground/40" style={{ backgroundColor: item.dot }} />
               </span>
             ) : (
               <item.icon aria-hidden />
@@ -106,10 +107,8 @@ export function AppSidebar({ projects, openTasks, workspace, otherWorkspaces, ma
     <Sidebar collapsible="icon">
       <SidebarHeader>
         <Link href="/" className="flex h-8 items-center gap-2 px-2 text-sm font-semibold">
-          <span aria-hidden className="flex size-5 items-center justify-center rounded bg-primary text-[11px] text-primary-foreground">
-            S
-          </span>
-          <span className="group-data-[collapsible=icon]:hidden">Soldlyne</span>
+          <LogoMark className="-ml-0.5 size-5 text-sidebar-primary" glyph="fill-sidebar-primary-foreground" />
+          <span className="text-[0.95rem] font-bold tracking-tight group-data-[collapsible=icon]:hidden">Soldlyne</span>
         </Link>
       </SidebarHeader>
       <SidebarContent>

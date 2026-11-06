@@ -1,0 +1,32 @@
+import { cn } from '@/lib/utils'
+
+/** The s of the mark, on a 32 by 32 grid: outlined from Schibsted Grotesk, so it needs no font to load. */
+const S_PATH =
+  'M16.18 21.6Q14.32 21.6 12.63 21.09Q10.93 20.58 9.76 19.47Q8.6 18.36 8.29 16.56L12.95 15.64Q13.07 16.79 13.79 17.39Q14.5 17.99 15.96 17.99Q17.36 17.99 17.97 17.51Q18.58 17.02 18.58 16.39Q18.58 15.84 18.07 15.37Q17.57 14.89 16.2 14.71L14.92 14.52Q14.03 14.4 12.99 14.17Q11.95 13.95 11.03 13.48Q10.11 13.02 9.52 12.16Q8.93 11.3 8.93 9.92Q8.93 8.31 9.8 7.11Q10.67 5.92 12.26 5.26Q13.84 4.6 15.98 4.6Q17.82 4.6 19.4 5.13Q20.99 5.66 22.07 6.7Q23.16 7.73 23.48 9.29L18.88 10.24Q18.77 9.74 18.51 9.26Q18.26 8.77 17.71 8.45Q17.17 8.13 16.19 8.13Q15.14 8.13 14.59 8.53Q14.04 8.92 14.04 9.53Q14.04 10.06 14.44 10.38Q14.84 10.7 15.5 10.89Q16.16 11.07 16.92 11.19L18.48 11.42Q19.77 11.61 20.97 12.13Q22.17 12.64 22.94 13.64Q23.71 14.63 23.71 16.23Q23.71 18 22.72 19.2Q21.73 20.39 20.02 21Q18.32 21.6 16.18 21.6Z'
+
+/**
+ * The mark: a lowercase s, doubly underlined, the way a ledger marks a final figure. The tile takes the
+ * current text colour, and the s and its rules the colour of `glyph`, so it reads on paper and in the sidebar.
+ */
+export function LogoMark({ className, glyph = 'fill-primary-foreground' }: { className?: string; glyph?: string }) {
+  return (
+    <svg viewBox="0 0 32 32" aria-hidden className={cn('size-6 shrink-0 text-primary', className)}>
+      <rect width="32" height="32" rx="7" fill="currentColor" />
+      <g className={glyph}>
+        <path d={S_PATH} />
+        <rect x="7" y="23.6" width="18" height="1.7" />
+        <rect x="7" y="26.6" width="18" height="1.7" />
+      </g>
+    </svg>
+  )
+}
+
+/** Mark and name, for the top of the pages outside the app. */
+export function Logo({ className }: { className?: string }) {
+  return (
+    <span className={cn('flex items-center gap-2', className)}>
+      <LogoMark className="size-7" />
+      <span className="text-lg font-bold tracking-tight">Soldlyne</span>
+    </span>
+  )
+}
