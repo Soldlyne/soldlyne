@@ -2,14 +2,7 @@ import 'server-only'
 import { z } from 'zod'
 import { sha256 } from '@/lib/hash'
 import { prisma } from '@/lib/prisma'
-import { normalizeDomain, normalizeEmail } from '@/lib/crm/format'
-
-/** Free-mail providers: their domain says nothing about the company. */
-const FREE_MAIL = new Set([
-  'gmail.com', 'googlemail.com', 'yahoo.com', 'yahoo.fr', 'hotmail.com', 'hotmail.fr', 'outlook.com', 'outlook.fr', 'live.com', 'live.fr', 'msn.com',
-  'icloud.com', 'me.com', 'mac.com', 'aol.com', 'proton.me', 'protonmail.com', 'gmx.com', 'gmx.fr', 'orange.fr', 'wanadoo.fr', 'free.fr', 'sfr.fr',
-  'laposte.net', 'bbox.fr', 'neuf.fr', 'yandex.com', 'zoho.com',
-])
+import { isFreeMail, normalizeDomain, normalizeEmail } from '@/lib/crm/format'
 
 export const hashKey = sha256
 
@@ -44,7 +37,7 @@ export async function captureLead(sourceId: string, input: LeadInput) {
 
   // Company: by work-email domain, else by the name typed in the form.
   let companyId: string | null = null
-  if (!FREE_MAIL.has(domain)) {
+  if (!isFreeMail(domain)) {
     const company =
       (await prisma.company.findFirst({ where: { domain } })) ??
       (await prisma.company.create({ data: { name: lead.company || domain, domain, source: 'INBOUND', createdBy: 'IMPORT' } }))

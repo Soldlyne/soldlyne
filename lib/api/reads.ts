@@ -17,7 +17,7 @@ export type ListPage<T> = { data: T[]; nextCursor: string | null; asOf: string }
 const COMMIT_MARGIN_MS = 60_000
 
 /** Reads a page in id order, which holds still while records change. One row more than asked says whether another page follows. */
-async function pageOf<Row extends { id: string }, T>(query: ListQuery, read: (args: { where: { id?: { gt: string } }; take: number; orderBy: { id: 'asc' } }) => Promise<Row[]>, show: (row: Row) => T): Promise<ListPage<T>> {
+export async function pageOf<Row extends { id: string }, T>(query: ListQuery, read: (args: { where: { id?: { gt: string } }; take: number; orderBy: { id: 'asc' } }) => Promise<Row[]>, show: (row: Row) => T): Promise<ListPage<T>> {
   const asOf = new Date(Date.now() - COMMIT_MARGIN_MS).toISOString()
   const rows = await read({ where: query.cursor ? { id: { gt: query.cursor } } : {}, take: query.limit + 1, orderBy: { id: 'asc' } })
   const shown = rows.slice(0, query.limit)

@@ -2,7 +2,8 @@ import 'server-only'
 import { revalidatePath } from 'next/cache'
 import type { MemberRole } from '@prisma/client'
 import { managesApiKeys } from '@/lib/workspaces/roles'
-import { createApiKey, listApiKeys, revokeApiKey } from './keys'
+import { prisma } from '@/lib/prisma'
+import { createApiKey, createHandoverKey, listApiKeys, revokeApiKey } from './keys'
 
 // The one way to a workspace's keys, for the screen and for an assistant's tools alike. Each says who
 // asks: the role, in the workspace this call is bound to, is checked here so that no door can forget it.
@@ -24,6 +25,20 @@ export async function createKeyAs(role: MemberRole | undefined, madeBy: string |
   requireKeyManager(role)
   if (!madeBy) throw new Error(NOT_ALLOWED)
   const made = await createApiKey(name, madeBy)
+  revalidatePath(SETTINGS)
+  return made
+}
+
+/**
+ * A key that hands people over to this workspace, its deals on this product. Returned once, like any
+ * key. For the screen alone: what's written in records can carry instructions, so no assistant makes a
+ * key that writes. The product is looked up in this workspace, so another's can't be named.
+ */
+export async function createHandoverKeyAs(role: MemberRole | undefined, madeBy: string | undefined, name: string, productId: string) {
+  requireKeyManager(role)
+  if (!madeBy) throw new Error(NOT_ALLOWED)
+  if (!(await prisma.product.findFirst({ where: { id: productId, archived: false }, select: { id: true } }))) throw new Error('Choose a product of this workspace.')
+  const made = await createHandoverKey(name, madeBy, productId)
   revalidatePath(SETTINGS)
   return made
 }

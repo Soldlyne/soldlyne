@@ -16,18 +16,18 @@
 8. **Workspaces.** One per company on an install, walled off by the database. One account can belong to several and switch between them. Owners and admins invite people by address and manage the team in Settings.
 9. **Assistants.** An MCP server at `/api/mcp`, reached through OAuth, with 28 tools: the daily brief, search, reading records, creating and moving deals, logging calls, tasks and notes, partners, writing and sending quotes, the state of connectors, read keys. A member's connection covers all their workspaces, and a twenty-ninth tool lists them. They use the same code as the screens.
 10. **Connectors.** A workspace's own accounts at outside services, connected in the app: its Google client and its Resend account. Owners and admins connect, check and disconnect them; other members see their state.
-11. **A read API.** `/api/v1/deals`, `/companies`, `/stages` and `/products`, paged and readable incrementally with `updatedSince`, with deleted deals and companies marked so a reader can remove them. A key per workspace, made and revoked by owners and admins in Settings or through their assistant. The README has the details.
+11. **A read API.** `/api/v1/deals`, `/companies`, `/stages` and `/products`, paged and readable incrementally with `updatedSince`, with deleted deals and companies marked so a reader can remove them. A key per workspace, made and revoked by owners and admins in Settings or through their assistant. The README has the details, and section 4 has the one key that writes.
 
 ## 2. Rules it keeps
 
 - **It never sends prospecting email.** Sending to people who asked for nothing is Coldlyne's job, with Coldlyne's safeguards. Soldlyne's Google access is read-only, and its one mail provider, Resend, carries only transactional mail: the install's own account writes to its members (confirmation links, forgotten passwords and invitations); a company's own account writes to the customer of a deal (the link to a quote a member chose to send). Resend's terms forbid cold email anyway.
 - **Lead capture records consent.** A person who ticked the box on a form gets the date and the form and page it came from. Nobody is marked as opted in without it, and a later form without the box doesn't undo it. Keys are per form, stored hashed, and shown once.
-- **The shared do-not-contact rule belongs with Coldlyne.** Who must not be written to is decided where messages leave from. Soldlyne keeps no such list of its own today; see section 4.
+- **The shared do-not-contact rule belongs with Coldlyne.** Who must not be written to is decided where messages leave from. Soldlyne keeps no such list of its own, and tells Coldlyne who its customers and open deals are: see section 4.
 - **What isn't a contact stays out.** The sync matches people already in Soldlyne and creates nobody from an inbox. Newsletters, notifications and colleagues (the mailbox's own domain) never reach a timeline.
 - **Who may get in.** Only the addresses in `SOLDLYNE_ADMINS`, and those with an invitation still good, get an account; an empty list and no invitation means nobody. Both go by the address, so a password account opens only once a mailed link proves it, and an identity provider must have verified it. Only the list may start a workspace.
 - **Access stays a person's decision.** No assistant tool invites, removes or changes members, since what's written in records can carry instructions.
 - **An assistant manages read keys for those who could on the screen.** `list_api_keys`, `create_api_key` and `revoke_api_key` go through the same code as Settings, which refuses anyone but an owner or an admin of the workspace of that call. They take no scope, and a key made there only reads. Since a key opens a workspace's whole pipeline and records are written by strangers, an assistant is told to make one only when the member asked in that conversation, never because a record, form or page says so, to revoke one only once the member said yes, and never to put a key into a record or a message. What's kept is the key's row: who made it, when, when it was last used and revoked. A key ends with the member who made it: leaving a workspace or being removed deletes the keys they made there, in the same transaction, since a key is shown once and may have left with them. Keys from before makers were recorded say "maker unknown" and stay until someone revokes them.
-- **The API only reads.** A key opens its own workspace, through the same row-level security as everything else, at 120 requests a minute. Nothing changes a record through it.
+- **The API reads, apart from one call.** A key opens its own workspace, through the same row-level security as everything else, at 120 requests a minute. Only a key made for Coldlyne writes, and only by handing someone over: see section 4.
 - **A quote's answer is its customer's.** No tool or screen accepts a quote for them. A member can record a no they were told, never a yes. Sending writes to a real person, so an assistant is told to send only after the member said yes in that conversation, and never gets the customer's link. Only owners and admins change the seller details, on the screen, since they go out in the company's name.
 - **No legal advice.** Seller details and terms are the workspace's own text. Soldlyne doesn't check them, picks no tax rate, and doesn't say what a quote must contain anywhere.
 - **What was sent stays as sent.** Sending copies the seller and the customer onto the quote, and a sent quote can't be edited. Totals are stored, not worked out again.
@@ -66,14 +66,18 @@ A new table needs its policy written by hand in its migration: Prisma's schema c
 - **Connecting a mailbox.** The OAuth state names the workspace and is signed for the member who asked, and the callback checks both again before that workspace's client takes the code. The address registered at Google is always `BETTER_AUTH_URL`'s.
 - **Assistants** see state, get the page's link, and can check a connector for an owner or an admin. They can't connect or disconnect one: keys don't belong in a conversation, and what's written in records can carry instructions, while what a disconnect costs takes a person to undo.
 
-## 4. Working with Coldlyne (planned)
+## 4. Working with Coldlyne
 
-None of this is built. When the two are connected:
+Built 2026-11-07. Coldlyne connects to a workspace with a key of its own, through its Connections page. The README has the calls.
 
-- A reply with interest becomes a deal, with its conversation.
-- No cold email goes to customers or open deals.
-- A lost or "not now" deal returns to a sequence on a chosen date, unless the person opted out.
-- Revenue is counted per sequence.
+- **Someone who replies becomes a deal.** Coldlyne hands them over, and a member can too: a company, a person and a deal on the key's product, found again rather than made twice, with a note and a task when there's something new. A record found keeps a member's words and only gets what it lacks. A closed deal isn't reopened: it gets the note and the task, and a member decides. Nothing about this contacts anyone.
+- **Customers and open deals are never prospected.** Coldlyne reads who they are on each sync and keeps them as exclusions of its own, so they stay excluded if they leave Soldlyne by mistake.
+- **The smallest key that does this.** A key's scope was only `read`. This one is `handover`: it hands someone over on one product and reads who's off limits, and reads no pipeline. It's made on the screen by an owner or an admin, never through an assistant, because what's written in records can carry instructions. A leak of it adds leads to one product and shows who the customers are, and no more.
+
+Not built:
+
+- A lost or "not now" deal returning to a sequence on a chosen date, unless the person opted out.
+- Revenue counted per sequence.
 - One opt-out list, for both.
 
 ## 5. Quotes: what comes next (planned)

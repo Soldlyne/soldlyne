@@ -68,6 +68,15 @@ export function normalizeDomain(input: string | null | undefined): string | null
   return value || null
 }
 
+/** Free-mail providers: their domain says nothing about the company. */
+const FREE_MAIL = new Set([
+  'gmail.com', 'googlemail.com', 'yahoo.com', 'yahoo.fr', 'hotmail.com', 'hotmail.fr', 'outlook.com', 'outlook.fr', 'live.com', 'live.fr', 'msn.com',
+  'icloud.com', 'me.com', 'mac.com', 'aol.com', 'proton.me', 'protonmail.com', 'gmx.com', 'gmx.fr', 'orange.fr', 'wanadoo.fr', 'free.fr', 'sfr.fr',
+  'laposte.net', 'bbox.fr', 'neuf.fr', 'yandex.com', 'zoho.com',
+])
+
+export const isFreeMail = (domain: string) => FREE_MAIL.has(domain)
+
 export function normalizeEmail(input: string): string {
   return input.trim().toLowerCase()
 }

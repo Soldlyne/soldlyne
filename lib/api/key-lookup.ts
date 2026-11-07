@@ -3,7 +3,7 @@ import { sha256 } from '@/lib/hash'
 import { trustedPrisma } from '@/lib/trusted-prisma'
 import { isSignedApiKey } from './key-token'
 
-export type KeyHolder = { id: string; scopes: string[]; workspace: { id: string; name: string } }
+export type KeyHolder = { id: string; scopes: string[]; productId: string | null; workspace: { id: string; name: string } }
 
 /**
  * The live key this secret opens, with its workspace, or null. Trusted: the key is what says which
@@ -13,7 +13,7 @@ export async function findLiveApiKey(key: string): Promise<KeyHolder | null> {
   if (!isSignedApiKey(key)) return null
   const row = await trustedPrisma.apiKey.findUnique({
     where: { keyHash: sha256(key) },
-    select: { id: true, scopes: true, revokedAt: true, workspace: { select: { id: true, name: true } } },
+    select: { id: true, scopes: true, productId: true, revokedAt: true, workspace: { select: { id: true, name: true } } },
   })
-  return row && !row.revokedAt ? { id: row.id, scopes: row.scopes, workspace: row.workspace } : null
+  return row && !row.revokedAt ? { id: row.id, scopes: row.scopes, productId: row.productId, workspace: row.workspace } : null
 }

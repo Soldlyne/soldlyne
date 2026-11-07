@@ -132,7 +132,7 @@ describe('list_api_keys', () => {
     const stored = await rowOf(here, made.id)
     const answer = await tool(owner, 'list_api_keys')
     const listed = parsed(answer).find(({ id }: { id: string }) => id === made.id)
-    expect(Object.keys(listed).sort()).toEqual(['createdAt', 'createdBy', 'id', 'lastUsedAt', 'name', 'prefix', 'revokedAt', 'scopes'])
+    expect(Object.keys(listed).sort()).toEqual(['createdAt', 'createdBy', 'id', 'lastUsedAt', 'name', 'prefix', 'product', 'revokedAt', 'scopes'])
     expect(listed).toMatchObject({ name: 'Listed', prefix: stored.prefix, scopes: ['read'], lastUsedAt: null, revokedAt: null })
     expect(answer.content[0].text).not.toContain(made.key)
     expect(answer.content[0].text).not.toContain(stored.keyHash)

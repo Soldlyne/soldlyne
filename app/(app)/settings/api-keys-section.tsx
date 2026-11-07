@@ -1,11 +1,13 @@
 import { Panel } from '@/components/crm/record-layout'
 import { listApiKeys } from '@/lib/api/keys'
+import { listProducts } from '@/lib/crm/queries'
 import { publicUrl } from '@/lib/public-url'
 import { ApiKeyControls } from './api-key-controls'
+import { HandoverKeyForm } from './handover-key-form'
 
 /** The keys other apps read this workspace with. Shown to owners and admins, who alone can make or end one. */
 export async function ApiKeysSection() {
-  const keys = await listApiKeys()
+  const [keys, products] = await Promise.all([listApiKeys(), listProducts()])
   return (
     <Panel title="API keys">
       <p className="mb-3 text-sm text-muted-foreground">
@@ -13,6 +15,7 @@ export async function ApiKeysSection() {
       </p>
       <p className="mb-3 text-sm text-muted-foreground">A key stops working when the member who made it leaves the workspace. One marked maker unknown was made before makers were recorded, and stays until someone revokes it.</p>
       <ApiKeyControls keys={keys} />
+      <HandoverKeyForm products={products.map(({ id, label }) => ({ id, label }))} />
     </Panel>
   )
 }

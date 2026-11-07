@@ -10,7 +10,7 @@ import { createApiKeyOfWorkspace, revokeApiKeyOfWorkspace } from '@/lib/api/acti
 import type { ListedApiKey } from '@/lib/api/keys'
 import { formatRelative } from '@/lib/crm/format'
 
-function RevealedKey({ apiKey, onDone }: { apiKey: string; onDone: () => void }) {
+export function RevealedKey({ apiKey, onDone }: { apiKey: string; onDone: () => void }) {
   return (
     <div className="space-y-2 rounded-lg border border-ring bg-surface p-3">
       <p className="text-sm font-medium">Copy this key now: it won&apos;t be shown again.</p>
@@ -43,7 +43,8 @@ function KeyRow({ apiKey }: { apiKey: ListedApiKey }) {
           {apiKey.name} <span className="font-mono text-xs font-normal text-muted-foreground">{apiKey.prefix}…</span>
         </p>
         <p className="text-xs text-muted-foreground">
-          {apiKey.scopes.join(', ')} · {apiKey.lastUsedAt ? `last used ${formatRelative(apiKey.lastUsedAt)}` : 'never used'}
+          {apiKey.scopes.join(', ')}
+          {apiKey.product ? ` on ${apiKey.product.name}` : ''} · {apiKey.lastUsedAt ? `last used ${formatRelative(apiKey.lastUsedAt)}` : 'never used'}
           {apiKey.revokedAt ? ` · revoked ${formatRelative(apiKey.revokedAt)}` : !apiKey.createdBy && ' · maker unknown'}
         </p>
       </div>

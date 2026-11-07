@@ -2,7 +2,7 @@
 
 The CRM that takes over once someone answers: companies, people, deals, pipelines, tasks, timeline and reports. Soldlyne is the sibling of [Coldlyne](https://github.com/Coldlyne/coldlyne), which does the prospecting and sends the messages. From cold to sold. See [docs/00-product.md](docs/00-product.md).
 
-**Under construction.** One install hosts many companies, each in its own workspace, walled off by the database itself. The link with Coldlyne isn't built yet, so today the two run side by side and know nothing of each other. The plan is in [the spec](docs/00-product.md#4-working-with-coldlyne-planned). Deal amounts are in euros; a quote has its own currency.
+**Under construction.** One install hosts many companies, each in its own workspace, walled off by the database itself. Coldlyne connects to it with a key of its own, so that someone who replies becomes a deal here and your customers are never prospected: see [Connecting Coldlyne](#connecting-coldlyne). Deal amounts are in euros; a quote has its own currency.
 
 ## What it does today
 
@@ -136,7 +136,16 @@ curl -H "Authorization: Bearer $KEY" "$ADDRESS/api/v1/deals?updatedSince=2026-11
 - **Deleted records.** Deals and companies deleted in Soldlyne stay in the lists with `"deleted": true` and a `deletedAt`, so a reader can remove them. A deleted contact shows as `null` on its deals.
 - **Stages and products.** They aren't deleted softly. A product stops being sold with `"archived": true`, and a stage removed from Settings is simply gone from the list, so read these two lists whole. Removing a stage also erases for good the deleted deals still in it, so a reader that wants to catch those compares a whole read now and then.
 - **Deals carry** `id`, `name`, `stage` (`id`, `name`, `kind`: `OPEN`, `WON` or `LOST`), `product` and `project` (`id`, `name`; `project` can be `null`), `companyId`, `contact` (`name`, `email`), `amountMinor` and `currency`, `probability` (the deal's own, else its stage's), `closeDate`, `closedAt`, `source`, `createdAt`, `updatedAt`, `deleted`, `deletedAt` and `url`, the deal's page. `amountMinor` is a string of hundredths of the currency, as a JSON number could lose digits.
-- **Limits.** 120 requests a minute per key, then a `429` with `Retry-After`. A request with no valid key gets a `401` from the key's signature alone: it reaches no database and no sign-in code. The API only reads.
+- **Limits.** 120 requests a minute per key, then a `429` with `Retry-After`. A request with no valid key gets a `401` from the key's signature alone: it reaches no database and no sign-in code. Only a key made for Coldlyne writes anything, and only through the one call below.
+
+## Connecting Coldlyne
+
+Coldlyne does the prospecting, and connects to a workspace with a key of its own. An owner or an admin makes it in Settings, under API keys, choosing the product its deals open on, and pastes it on Coldlyne's Connections page with this install's address. An assistant can't make one: the tools only make keys that read. It ends when the member who made it leaves, and can be revoked like any key. If its product is deleted, it hands over nothing until it's replaced.
+
+This key (scope `handover`) can do these two things and read `/api/v1/workspace`. It can't read the pipeline, and a read key can't do either.
+
+- **`POST /api/v1/handovers`** with `{ "company": { "name", "website"?, "siren"? }, "person": { "firstName"?, "lastName", "email"?, "phone"?, "jobTitle"? }, "note"?, "source"? }` makes a company, a person and a deal, or finds them again: the company by SIREN, domain or name, the person by address or by name there, the deal by product, for that person or company, the open one first. A record found keeps what's written on it and only gets what it lacks. A closed deal isn't reopened. The same note on the same deal is a repeat, and adds nothing; anything new also adds a task. It answers `201` when it opened a deal, otherwise `200`, with `dealId`, `personId`, `companyId`, `created` and `url`. It contacts nobody.
+- **`GET /api/v1/do-not-prospect`** pages through customers (a won deal) and open deals, as `{ "why": "customer" | "open_deal", "company": { "name", "domain", "siren" } | null, "people": [{ "emails", "phones", "linkedinUrl" }] }`, with nothing of the deal itself. Read it whole: `updatedSince` doesn't apply, since what identifies someone can change without their deal changing. A mail provider's domain is never given as a company's.
 
 ## Running a hosted edition
 

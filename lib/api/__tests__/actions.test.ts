@@ -5,7 +5,7 @@ const seat = vi.hoisted(() => ({ workspace: { id: '', name: 'Keys', slug: 'keys'
 vi.mock('@/lib/workspaces/seat', () => ({ requireSeat: async () => seat }))
 
 const { prisma, runInWorkspace } = await import('@/lib/prisma')
-const { createApiKeyOfWorkspace, revokeApiKeyOfWorkspace } = await import('../actions')
+const { createApiKeyOfWorkspace, createHandoverKeyOfWorkspace, revokeApiKeyOfWorkspace } = await import('../actions')
 
 const keysHere = () => runInWorkspace(seat.workspace.id, () => prisma.apiKey.findMany())
 
@@ -17,6 +17,43 @@ beforeAll(async () => {
 afterAll(async () => {
   await removeWorkspace(seat.workspace.id)
   await removeUsers('@api-actions.example')
+})
+
+describe('a key for a prospecting tool', () => {
+  const productIn = (workspaceId: string, name: string) => runInWorkspace(workspaceId, () => prisma.product.create({ data: { name } }))
+
+  it.each(['OWNER', 'ADMIN'])('is made by an %s, on a product of this workspace, and does nothing but hand over', async (role) => {
+    seat.workspace.role = role
+    const product = await productIn(seat.workspace.id, `Audit ${role}`)
+    const { key } = await createHandoverKeyOfWorkspace('For the tool', product.id)
+    expect((await keysHere()).find(({ prefix }) => key.startsWith(prefix))).toMatchObject({ scopes: ['handover'], productId: product.id, createdBy: seat.user.id })
+  })
+
+  it('is refused to a member', async () => {
+    seat.workspace.role = 'OWNER'
+    const product = await productIn(seat.workspace.id, 'Not for members')
+    seat.workspace.role = 'MEMBER'
+    await expect(createHandoverKeyOfWorkspace('Mine', product.id)).rejects.toThrow('Only owners and admins manage API keys.')
+  })
+
+  it("can't name another workspace's product, or an archived one", async () => {
+    seat.workspace.role = 'OWNER'
+    const elsewhere = await createBareWorkspace('api-actions-other')
+    const theirs = await productIn(elsewhere.id, 'Theirs')
+    await expect(createHandoverKeyOfWorkspace('Mine', theirs.id)).rejects.toThrow('Choose a product of this workspace.')
+    await removeWorkspace(elsewhere.id)
+    const archived = await runInWorkspace(seat.workspace.id, () => prisma.product.create({ data: { name: 'Old', archived: true } }))
+    await expect(createHandoverKeyOfWorkspace('Mine', archived.id)).rejects.toThrow('Choose a product of this workspace.')
+  })
+
+  it('ends with whoever made it, like any key', async () => {
+    seat.workspace.role = 'OWNER'
+    const product = await productIn(seat.workspace.id, 'Ends')
+    const { key } = await createHandoverKeyOfWorkspace('Ends with its maker', product.id)
+    const row = (await keysHere()).find(({ prefix }) => key.startsWith(prefix))!
+    await revokeApiKeyOfWorkspace(row.id)
+    expect((await keysHere()).find(({ id }) => id === row.id)?.revokedAt).toBeInstanceOf(Date)
+  })
 })
 
 describe('managing keys', () => {

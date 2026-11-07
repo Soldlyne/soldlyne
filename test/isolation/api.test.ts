@@ -3,7 +3,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createBareWorkspace, removeWorkspace } from '@/test/fixtures'
 
 const { prisma, runInWorkspace } = await import('@/lib/prisma')
-const { createApiKey, revokeApiKey } = await import('@/lib/api/keys')
+const { createApiKey, createHandoverKey, revokeApiKey } = await import('@/lib/api/keys')
+const { POST: handover } = await import('@/app/api/v1/handovers/route')
+const { GET: doNotProspect } = await import('@/app/api/v1/do-not-prospect/route')
 const { GET: deals } = await import('@/app/api/v1/deals/route')
 const { GET: companies } = await import('@/app/api/v1/companies/route')
 const { GET: stages } = await import('@/app/api/v1/stages/route')
@@ -70,6 +72,26 @@ describe("a key of workspace A, with records in A and B", () => {
   it.each(ROUTES)("%s: a cursor pointing into B doesn't open it", async (_name, handler, row) => {
     const ids = (await read(handler, a.key, `?limit=200&cursor=${encodeURIComponent(b.rows[row])}`)).data.map(({ id }) => id)
     expect(ids).not.toContain(b.rows[row])
+  })
+
+  it("a handover key's records stay in its workspace, and each sees only its own off limits", async () => {
+    const made = async (workspaceId: string, tag: string) => {
+      const product = await runInWorkspace(workspaceId, () => prisma.product.create({ data: { name: `Handed over ${tag}` } }))
+      await runInWorkspace(workspaceId, () => prisma.stage.create({ data: { name: `Open ${tag}`, kind: 'OPEN', position: 2000 } }))
+      return (await runInWorkspace(workspaceId, () => createHandoverKey(`Handover ${tag}`, null, product.id))).key
+    }
+    const [keyA, keyB] = [await made(a.id, 'a'), await made(b.id, 'b')]
+    const body = JSON.stringify({ company: { name: 'Same company', website: 'https://same-company.example' }, person: { lastName: 'Same', email: 'same@same-company.example' } })
+    const post = (key: string) => handover(new Request('http://localhost:3100/api/v1/handovers', { method: 'POST', headers: { authorization: `Bearer ${key}` }, body }))
+    const [inA, inB] = [await (await post(keyA)).json(), await (await post(keyB)).json()]
+    expect(inA.dealId).not.toBe(inB.dealId)
+    expect(inA.companyId).not.toBe(inB.companyId)
+    expect(await runInWorkspace(a.id, () => prisma.deal.findUnique({ where: { id: inB.dealId } }))).toBeNull()
+    const seenBy = async (key: string) => (await (await doNotProspect(new Request('http://localhost:3100/api/v1/do-not-prospect?limit=200', { headers: { authorization: `Bearer ${key}` } }))).json()) as { data: { company: { name: string } | null }[] }
+    expect((await seenBy(keyA)).data.filter(({ company }) => company?.name === 'Same company')).toHaveLength(1)
+    await runInWorkspace(b.id, () => prisma.deal.delete({ where: { id: inB.dealId } }))
+    expect((await seenBy(keyB)).data.filter(({ company }) => company?.name === 'Same company')).toEqual([])
+    expect((await seenBy(keyA)).data.filter(({ company }) => company?.name === 'Same company')).toHaveLength(1)
   })
 
   it('says it opens A, and nothing of B', async () => {

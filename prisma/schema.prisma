@@ -442,6 +442,7 @@ model Product {
   project     Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
   leadSources LeadSource[]
   quoteLines  QuoteLine[]
+  handoverKeys ApiKey[]
 
   @@index([workspaceId])
 }
@@ -1101,8 +1102,11 @@ model ApiKey {
   keyHash         String    @unique
   /// First characters of the key, to recognise it in the list.
   prefix          String
-  /// What it may do. Only "read" exists today.
+  /// What it may do: "read", or "handover" for a key that only hands people over and says who is off limits.
   scopes          String[]  @default(["read"])
+  /// For a "handover" key: the product the deals it opens are on. Emptied if the product goes; the key then hands over nothing until replaced.
+  productId       String?
+  product         Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
   /// Who made it: it ends with them. Keys from before this was kept have none, and stay until someone revokes them.
   createdBy       String?
   maker           User?     @relation(fields: [createdBy], references: [id], onDelete: SetNull)
