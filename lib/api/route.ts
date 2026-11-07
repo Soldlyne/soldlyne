@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { runInWorkspace } from '@/lib/prisma'
 import { findLiveApiKey, type KeyHolder } from './key-lookup'
 import { isSignedApiKey } from './key-token'
-import { handOver, handoverSchema, NoOpenStageError } from './handover'
+import { HANDOVER_VERSION, handOver, handoverSchema, NoOpenStageError, PersonDeletedError } from './handover'
 import { HANDOVER_SCOPE, READ_SCOPE, takeRequest, WINDOW_SECONDS } from './keys'
 import type { ListPage, ListQuery } from './reads'
 
@@ -53,8 +53,8 @@ export function listRoute<T>(readPage: (query: ListQuery) => Promise<ListPage<T>
   })
 }
 
-/** Which workspace a key opens: what a reader knows it by when the key is replaced, and how a connection names itself. */
-export const workspaceRoute = () => keyed([READ_SCOPE, HANDOVER_SCOPE], async ({ workspace }) => answer(workspace))
+/** Which workspace a key opens: what a reader knows it by when the key is replaced, and how a connection names itself. It also says which handover this install speaks, so a tool can refuse one that would restore people. */
+export const workspaceRoute = () => keyed([READ_SCOPE, HANDOVER_SCOPE], async ({ workspace }) => answer({ ...workspace, handoverVersion: HANDOVER_VERSION }))
 
 /** Someone handed over by another app, on the product the key was made for. */
 export const handoverRoute = () =>
@@ -66,7 +66,7 @@ export const handoverRoute = () =>
       const handedOver = await handOver(productId, input.data)
       return Response.json(handedOver, { status: handedOver.created ? 201 : 200, headers: { 'cache-control': 'no-store' } })
     } catch (error) {
-      if (error instanceof NoOpenStageError) return refusal(409, error.message)
+      if (error instanceof NoOpenStageError || error instanceof PersonDeletedError) return refusal(409, error.message)
       throw error
     }
   })

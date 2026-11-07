@@ -94,9 +94,13 @@ describe("a key of workspace A, with records in A and B", () => {
     expect((await seenBy(keyA)).data.filter(({ company }) => company?.name === 'Same company')).toHaveLength(1)
   })
 
+  it('a retry key can be the same in A and B', async () => {
+    for (const id of [a.id, b.id]) await runInWorkspace(id, () => prisma.note.create({ data: { body: 'Same key', retryKey: 'the-same-key' } }))
+  })
+
   it('says it opens A, and nothing of B', async () => {
     const response = await workspaceOfKey(new Request('http://localhost:3100/api/v1/workspace', { headers: { authorization: `Bearer ${a.key}` } }))
-    expect(await response.json()).toEqual({ id: a.id, name: expect.stringContaining('api-isolation-a') })
+    expect(await response.json()).toEqual({ id: a.id, name: expect.stringContaining('api-isolation-a'), handoverVersion: 2 })
   })
 
   it("can't be revoked from B, and revoking it leaves B's key working", async () => {

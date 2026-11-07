@@ -113,7 +113,7 @@ describe('create_api_key', () => {
     expect((await rowOf(here, made.id)).lastUsedAt).toBeNull()
     expect((await askWith(dealsRoute.GET, made.key)).status).toBe(200)
     const opened = await askWith(workspaceRoute.GET, made.key)
-    expect(await opened.json()).toEqual({ id: here, name: 'Here' })
+    expect(await opened.json()).toEqual({ id: here, name: 'Here', handoverVersion: 2 })
     const stored = await rowOf(here, made.id)
     expect(stored.createdAt).toBeInstanceOf(Date)
     expect(stored.lastUsedAt).toBeInstanceOf(Date)

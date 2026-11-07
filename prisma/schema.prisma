@@ -807,6 +807,8 @@ model Note {
   person      Person?   @relation(fields: [personId], references: [id], onDelete: Cascade)
   dealId      String?
   deal        Deal?     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  /// What a tool's retry of one event is known by, once per workspace: a partial unique index, in the migration.
+  retryKey    String?
   /// Who created the record: you, an import, the mail sync, Claude through MCP.
   createdBy   Actor     @default(USER)
   createdAt   DateTime  @default(now())

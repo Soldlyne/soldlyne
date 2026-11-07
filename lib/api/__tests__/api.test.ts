@@ -57,7 +57,7 @@ describe('a key', () => {
   })
 
   it('opens the workspace it was made in, and records when', async () => {
-    expect(await read(workspaceOfKey, key)).toEqual({ id: workspace.id, name: expect.stringContaining('Workspace') })
+    expect(await read(workspaceOfKey, key)).toEqual({ id: workspace.id, name: expect.stringContaining('Workspace'), handoverVersion: 2 })
     const stored = await workspace.run(() => prisma.apiKey.findUniqueOrThrow({ where: { id: keyId } }))
     expect(stored.lastUsedAt).toBeInstanceOf(Date)
   })

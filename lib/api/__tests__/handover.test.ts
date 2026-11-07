@@ -174,13 +174,189 @@ describe('handing someone over', () => {
   })
 })
 
+describe('someone deleted in Soldlyne', () => {
+  const recordCounts = async () => ({ companies: await prisma.company.count(), people: await prisma.person.count(), deals: await prisma.deal.count(), notes: await prisma.note.count(), tasks: await prisma.task.count(), events: await prisma.timelineEvent.count() })
+
+  const refusedAsDeleted = async (body: unknown) => {
+    const response = await post(body)
+    expect(response.status).toBe(409)
+    expect(await response.json()).toEqual({ error: 'person_deleted' })
+  }
+
+  workspace.it('stays deleted when they reply: refused, nothing written, not even a new company', async () => {
+    const given = stranger()
+    const person = await prisma.person.create({ data: { firstName: 'Ada', lastName: 'Gone', emails: [given.person.email], deletedAt: new Date('2026-11-01') } })
+    const before = await recordCounts()
+    await refusedAsDeleted(given)
+    expect(await recordCounts()).toEqual(before)
+    expect((await prisma.person.findUniqueOrThrow({ where: { id: person.id } })).deletedAt).toEqual(new Date('2026-11-01'))
+    expect(await prisma.company.findFirst({ where: { name: given.company.name } })).toBeNull()
+  })
+
+  workspace.it('stays deleted when found by name at their company', async () => {
+    const given = stranger({ person: { email: undefined } })
+    const company = await prisma.company.create({ data: { name: given.company.name } })
+    await prisma.person.create({ data: { firstName: 'Ada', lastName: given.person.lastName, companyId: company.id, deletedAt: new Date() } })
+    await refusedAsDeleted(given)
+  })
+
+  workspace.it('stays deleted when they arrive with neither company nor last name', async () => {
+    const email = `gone-${Date.now()}@acme-gone.example`
+    await prisma.person.create({ data: { lastName: 'Gone', emails: [email], deletedAt: new Date() } })
+    await refusedAsDeleted({ person: { email } })
+  })
+
+  workspace.it("doesn't stop someone live who holds the same address", async () => {
+    const given = stranger()
+    await prisma.person.create({ data: { lastName: 'Gone', emails: [given.person.email], deletedAt: new Date() } })
+    const live = await prisma.person.create({ data: { lastName: 'Live', emails: [given.person.email] } })
+    expect((await handedOver(given)).personId).toBe(live.id)
+  })
+})
+
+describe('a company deleted in Soldlyne', () => {
+  workspace.it('stays deleted and gets nothing attached: a new one is made without its domain, once', async () => {
+    const given = stranger()
+    const domain = `acme-${serial}.example`
+    const gone = await prisma.company.create({ data: { name: 'Old name', domain, deletedAt: new Date('2026-11-01') } })
+    const made = await handedOver(given)
+    expect(made.companyId).not.toBe(gone.id)
+    expect(await prisma.company.findUniqueOrThrow({ where: { id: made.companyId } })).toMatchObject({ name: given.company.name, domain: null })
+    expect(await prisma.company.findUniqueOrThrow({ where: { id: gone.id } })).toMatchObject({ domain, deletedAt: new Date('2026-11-01') })
+    expect(await prisma.person.count({ where: { companyId: gone.id } })).toBe(0)
+    expect(await prisma.deal.count({ where: { companyId: gone.id } })).toBe(0)
+    expect((await handedOver(given)).companyId).toBe(made.companyId)
+  })
+
+  workspace.it("isn't found by its SIREN or its name either", async () => {
+    const given = stranger()
+    const gone = await prisma.company.create({ data: { name: given.company.name, custom: { siren: given.company.siren }, deletedAt: new Date() } })
+    const made = await handedOver(given)
+    expect(made.companyId).not.toBe(gone.id)
+    expect((await prisma.company.findUniqueOrThrow({ where: { id: gone.id } })).deletedAt).not.toBeNull()
+  })
+
+  workspace.it("isn't what someone with no company given lands on: they have none", async () => {
+    const domain = `gone-${Date.now()}.example`
+    await prisma.company.create({ data: { name: 'Gone', domain, deletedAt: new Date() } })
+    expect((await handedOver({ person: { email: `ada@${domain}` } })).companyId).toBeNull()
+  })
+
+  workspace.it("isn't what someone already there brings a deal to", async () => {
+    const domain = `kept-${Date.now()}.example`
+    const gone = await prisma.company.create({ data: { name: 'Gone', domain: `other-${domain}`, deletedAt: new Date() } })
+    const email = `ada@${domain}`
+    await prisma.person.create({ data: { lastName: 'Martin', emails: [email], companyId: gone.id } })
+    const made = await handedOver({ person: { email } })
+    expect(made.companyId).toBeNull()
+    expect((await prisma.deal.findUniqueOrThrow({ where: { id: made.dealId } })).companyId).toBeNull()
+  })
+})
+
+describe('someone with no company or no last name, as who books a meeting often is', () => {
+  workspace.it('lands on the company their address names, and makes none', async () => {
+    const domain = `known-${Date.now()}.example`
+    const company = await prisma.company.create({ data: { name: 'Known', domain } })
+    const before = await prisma.company.count()
+    const made = await handedOver({ person: { email: `ada@${domain}` } })
+    expect(made.companyId).toBe(company.id)
+    expect(await prisma.company.count()).toBe(before)
+    expect(await prisma.deal.findUniqueOrThrow({ where: { id: made.dealId } })).toMatchObject({ companyId: company.id, name: 'Known' })
+  })
+
+  workspace.it('makes no company for an address nobody knows, or a mail provider\'s, and adds nothing to it on a repeat', async () => {
+    for (const email of [`ada-${Date.now()}@unknown-${Date.now()}.example`, `ada-${Date.now()}@gmail.com`]) {
+      const before = await prisma.company.count()
+      const made = await handedOver({ person: { email, firstName: 'Ada' }, note: 'Booked' })
+      expect(made.status).toBe(201)
+      expect(made.companyId).toBeNull()
+      expect(await prisma.company.count()).toBe(before)
+      const again = await handedOver({ person: { email, firstName: 'Ada' }, note: 'Booked' })
+      expect(again).toMatchObject({ status: 200, personId: made.personId, dealId: made.dealId, companyId: null })
+      expect(await countsFor(made.dealId)).toEqual({ notes: 1, tasks: 1 })
+    }
+  })
+
+  workspace.it('names the deal and the task after who they are, and invents nothing', async () => {
+    const email = `only-${Date.now()}@gmail.com`
+    const anonymous = await handedOver({ person: { email } })
+    expect(await prisma.deal.findUniqueOrThrow({ where: { id: anonymous.dealId } })).toMatchObject({ name: email, companyId: null })
+    expect(await prisma.person.findUniqueOrThrow({ where: { id: anonymous.personId } })).toMatchObject({ firstName: '', lastName: '', emails: [email] })
+    expect((await prisma.task.findFirstOrThrow({ where: { dealId: anonymous.dealId } })).title).toBe(`Follow up: ${email}`)
+    const named = await handedOver({ person: { firstName: 'Ada', lastName: `Named ${Date.now()}` } })
+    const person = await prisma.person.findUniqueOrThrow({ where: { id: named.personId } })
+    expect((await prisma.deal.findUniqueOrThrow({ where: { id: named.dealId } })).name).toBe(`Ada ${person.lastName}`)
+  })
+
+  workspace.it('looks no one up by name without a company: a namesake is someone else', async () => {
+    const lastName = `Namesake ${Date.now()}`
+    const first = await handedOver({ person: { lastName } })
+    const second = await handedOver({ person: { lastName } })
+    expect(second.personId).not.toBe(first.personId)
+  })
+
+  workspace.it('needs an address or a last name', async () => {
+    expect((await post({ person: { firstName: 'Ada' } })).status).toBe(400)
+    expect((await post({ person: {} })).status).toBe(400)
+    expect((await post({})).status).toBe(400)
+  })
+})
+
+describe('a retry key', () => {
+  const base = () => stranger({ note: 'Booked for Thursday' })
+
+  workspace.it('keeps a retry to one note and one task, whatever its words', async () => {
+    const given = base()
+    const key = `booking-${Date.now()}`
+    const first = await handedOver({ ...given, retryKey: key })
+    const again = await handedOver({ ...given, retryKey: key, note: 'Booked for Thursday at 10' })
+    expect(again.dealId).toBe(first.dealId)
+    expect(await countsFor(first.dealId)).toEqual({ notes: 1, tasks: 1 })
+  })
+
+  workspace.it('lets a new key say the same words again: it is a new event', async () => {
+    const given = base()
+    const first = await handedOver({ ...given, retryKey: `one-${Date.now()}` })
+    await handedOver({ ...given, retryKey: `two-${Date.now()}` })
+    expect(await countsFor(first.dealId)).toEqual({ notes: 2, tasks: 2 })
+  })
+
+  workspace.it('is matched on its own, and leaves a repeat without one to its words', async () => {
+    const given = base()
+    const first = await handedOver(given)
+    await handedOver(given)
+    expect(await countsFor(first.dealId)).toEqual({ notes: 1, tasks: 1 })
+  })
+
+  workspace.it('is held once by the database itself', async () => {
+    const key = `unique-${Date.now()}`
+    await prisma.note.create({ data: { body: 'One', retryKey: key } })
+    await expect(prisma.note.create({ data: { body: 'Two', retryKey: key } })).rejects.toThrow()
+    await prisma.note.create({ data: { body: 'No key' } })
+    await prisma.note.create({ data: { body: 'No key either' } })
+  })
+
+  workspace.it('has a length limit', async () => {
+    expect((await post({ ...base(), retryKey: 'x'.repeat(201) })).status).toBe(400)
+  })
+})
+
+describe('which handover an install speaks', () => {
+  workspace.it('says so on the workspace route, to any key', async () => {
+    for (const withKey of [key, readKey]) {
+      const answer = await (await workspaceOfKey(new Request('http://localhost:3100/api/v1/workspace', { headers: { authorization: `Bearer ${withKey}` } }))).json()
+      expect(answer).toMatchObject({ id: workspace.id, handoverVersion: 2 })
+    }
+  })
+})
+
 describe('what a handover key opens', () => {
   const get = (route: (request: Request) => Promise<Response>, withKey: string) => route(new Request('http://localhost:3100/api/v1/x', { headers: { authorization: `Bearer ${withKey}` } }))
 
   workspace.it('hands over and says who is off limits, and reads no pipeline', async () => {
     expect((await get(deals, key)).status).toBe(403)
     expect((await get(doNotProspect, key)).status).toBe(200)
-    expect(await (await get(workspaceOfKey, key)).json()).toEqual({ id: workspace.id, name: expect.stringContaining('Workspace') })
+    expect(await (await get(workspaceOfKey, key)).json()).toEqual({ id: workspace.id, name: expect.stringContaining('Workspace'), handoverVersion: 2 })
   })
 
   workspace.it("is its own: a read key can't hand over, and can't read who is off limits", async () => {
